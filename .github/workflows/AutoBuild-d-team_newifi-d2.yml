@@ -58,6 +58,30 @@ on:
 
 ### 请按需求修改以下内容
 ### 环境变量设置
+name: Free Disk Space (Ubuntu)
+on: push
+
+jobs:
+  free-disk-space:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        # this might remove tools that are actually needed,
+        # if set to "true" but frees about 6 GB
+        tool-cache: false
+        
+        # all of these default to true, but feel free to set to
+        # "false" if necessary for your workflow
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: true
+        
 env:
 # 编译时调用的 [.config] 文件名称
   CONFIG_FILE: d-team_newifi-d2
@@ -69,13 +93,6 @@ env:
   DELETE_OLD_WORKFLOW: false
 # Cache 加速编译
   CACHE_ACCELERATE: false
-  tool-cache: false
-  android: true
-  dotnet: true
-  haskell: true
-  large-packages: true
-  docker-images: true
-  swap-storage: true
 ### 结束
 ### 请按需求修改以上内容
 
