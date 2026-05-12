@@ -81,7 +81,29 @@ jobs:
       contents: write
 
     steps:
-
+    
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        large-packages: true
+        docker-images: true
+        swap-storage: false
+        
+    - name: Checkout
+      uses: actions/checkout@main
+      with:
+        fetch-depth: 0
+        
+    - name: Create swap space
+      run: |
+        sudo fallocate -l 2G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo "Swap created:"
+        free -h
+    
     - name: "Optimize disk space"
       if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
       uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.0"
