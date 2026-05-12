@@ -69,6 +69,13 @@ env:
   DELETE_OLD_WORKFLOW: false
 # Cache 加速编译
   CACHE_ACCELERATE: false
+  tool-cache: false
+  android: true
+  dotnet: true
+  haskell: true
+  large-packages: true
+  docker-images: true
+  swap-storage: true
 ### 结束
 ### 请按需求修改以上内容
 
