@@ -116,7 +116,9 @@ Firmware_Diy_Main() {
 	FEEDS_LUCI="${GITHUB_WORKSPACE}/openwrt/package/feeds/luci"
 	FEEDS_PKG="${GITHUB_WORKSPACE}/openwrt/package/feeds/packages"
 	Version_File="package/lean/default-settings/files/zzz-default-settings"
-	# 其他可能用到的变量（从 Firmware_Diy_Start 中复制）
+	# 定义 Display_Date（从 Compile_Date 格式化）
+	Display_Date="${Compile_Date:0:4}/${Compile_Date:4:2}/${Compile_Date:6:2}"
+	# 其他可能用到的变量
 	AutoBuild_Features="${AutoBuild_Features:-true}"
 	x86_Full_Images="${x86_Full_Images:-false}"
 	Author="${Author:-nuoxiu}"
@@ -135,6 +137,10 @@ Firmware_Diy_Main() {
 	FEEDS_CONF="${FEEDS_CONF:-${WORK}/feeds.conf.default}"
 	Author_URL="${Author_URL:-https://github.com/nuoxiu/AutoBuild-Actions-BETA}"
 	Compile_Date="${Compile_Date:-$(date +%Y%m%d)}"
+	# 从 .config 中获取 zzz_Default_Version（如果为空则设置默认值）
+	if [[ -z ${zzz_Default_Version} ]]; then
+		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File} 2>/dev/null || echo "R26.02.20")"
+	fi
 	# ==============================================
 	
 	chmod 777 -R ${Scripts} ${CustomFiles}
@@ -163,12 +169,13 @@ EOF
 		case "${OP_AUTHOR}/${OP_REPO}" in
 		coolsnowwolf/lede)
 			Copy ${CustomFiles}/Depends/coremark.sh $(PKG_Finder d "package feeds" coremark)
-			sed -i '\/etc\/firewall.user/d;/exit 0/d' ${Version_File}
+			# 使用 # 作为 sed 分隔符，避免 / 冲突
+			sed -i '#\/etc\/firewall.user#d;#exit 0#d' ${Version_File}
 			if [[ -n ${TARGET_FLAG} ]]
 			then
-				sed -i "s?${zzz_Default_Version}?${TARGET_FLAG} ${zzz_Default_Version} @ ${Author} [${Display_Date}]?g" ${Version_File}
+				sed -i "s#${zzz_Default_Version}#${TARGET_FLAG} ${zzz_Default_Version} @ ${Author} [${Display_Date}]#g" ${Version_File}
 			else
-				sed -i "s?${zzz_Default_Version}?${zzz_Default_Version} @ ${Author} [${Display_Date}]?g" ${Version_File}
+				sed -i "s#${zzz_Default_Version}#${zzz_Default_Version} @ ${Author} [${Display_Date}]#g" ${Version_File}
 			fi
 		;;
 		immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
@@ -176,23 +183,23 @@ EOF
 			Copy ${CustomFiles}/Depends/os-release_immortalwrt ${BASE_FILES}/usr/lib os-release
 			if [[ -n ${TARGET_FLAG} ]]
 			then
-				sed -i "s?ImmortalWrt?ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]?g" ${Version_File}
-				sed -i "s?ImmortalWrt?ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]?g" ${BASE_FILES}/usr/lib/os-release
+				sed -i "s#ImmortalWrt#ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]#g" ${Version_File}
+				sed -i "s#ImmortalWrt#ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]#g" ${BASE_FILES}/usr/lib/os-release
 			else
-				sed -i "s?ImmortalWrt?ImmortalWrt @ ${Author} [${Display_Date}]?g" ${Version_File}
-				sed -i "s?ImmortalWrt?ImmortalWrt @ ${Author} [${Display_Date}]?g" ${BASE_FILES}/usr/lib/os-release
+				sed -i "s#ImmortalWrt#ImmortalWrt @ ${Author} [${Display_Date}]#g" ${Version_File}
+				sed -i "s#ImmortalWrt#ImmortalWrt @ ${Author} [${Display_Date}]#g" ${BASE_FILES}/usr/lib/os-release
 			fi
 		;;
 		esac
-		sed -i "s?By?By ${Author}?g" ${CustomFiles}/Depends/banner
-		sed -i "s?Openwrt?Openwrt ${OP_VERSION} / AutoUpdate ${AutoUpdate_Version}?g" ${CustomFiles}/Depends/banner
+		sed -i "s#By#By ${Author}#g" ${CustomFiles}/Depends/banner
+		sed -i "s#Openwrt#Openwrt ${OP_VERSION} / AutoUpdate ${AutoUpdate_Version}#g" ${CustomFiles}/Depends/banner
 		if [[ -n ${Default_Title} ]]
 		then
 			if [[ -n ${TARGET_FLAG} ]]
 			then
-				sed -i "s?Powered by AutoBuild-Actions?${Default_Title} @ ${TARGET_FLAG}?g" ${CustomFiles}/Depends/banner
+				sed -i "s#Powered by AutoBuild-Actions#${Default_Title} @ ${TARGET_FLAG}#g" ${CustomFiles}/Depends/banner
 			else
-				sed -i "s?Powered by AutoBuild-Actions?${Default_Title}?g" ${CustomFiles}/Depends/banner
+				sed -i "s#Powered by AutoBuild-Actions#${Default_Title}#g" ${CustomFiles}/Depends/banner
 			fi
 		fi
 		case "${OP_AUTHOR}/${OP_REPO}" in
