@@ -91,39 +91,75 @@ Firmware_Diy_Start() {
 		AutoBuild_Fw="AutoBuild-${OP_REPO}-${TARGET_PROFILE}-${OP_VERSION}-${TARGET_FLAG}-SHA256.FORMAT"
 	;;
 	esac
-	cat >> ${GITHUB_ENV} <<EOF
-WORK=${WORK}
-CONFIG_TEMP=${CONFIG_TEMP}
-CONFIG_FILE=${CONFIG_FILE}
-AutoBuild_Features=${AutoBuild_Features}
-x86_Full_Images=${x86_Full_Images}
-printf "AutoBuild_Fw=%s\n" "${AutoBuild_Fw}" >> ${GITHUB_ENV}
-CustomFiles=${GITHUB_WORKSPACE}/CustomFiles
-Scripts=${GITHUB_WORKSPACE}/Scripts
-BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files
-FEEDS_LUCI=${GITHUB_WORKSPACE}/openwrt/package/feeds/luci
-FEEDS_PKG=${GITHUB_WORKSPACE}/openwrt/package/feeds/packages
-Default_Title="${Default_Title}"
-Regex_Skip="${Regex_Skip}"
-Version_File=${Version_File}
-Fw_MFormat=${Fw_MFormat}
-FEEDS_CONF=${WORK}/feeds.conf.default
-Author_URL=${Author_URL}
-ENV_FILE=${GITHUB_ENV}
-Compile_Date=${Compile_Date}
 
-Author=${Author}
-Github=${Github}
-TARGET_PROFILE=${TARGET_PROFILE}
-TARGET_BOARD=${TARGET_BOARD}
-TARGET_SUBTARGET=${TARGET_SUBTARGET}
-TARGET_FLAG=${TARGET_FLAG}
-OP_VERSION=${OP_VERSION}
-OP_AUTHOR=${OP_AUTHOR}
-OP_REPO=${OP_REPO}
-OP_BRANCH=${OP_BRANCH}
-EOF
-	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
+	# ========== 以下内容已注释，避免写入 GITHUB_ENV 时产生非法格式 ==========
+	# cat >> ${GITHUB_ENV} <<EOF
+	# WORK=${WORK}
+	# CONFIG_TEMP=${CONFIG_TEMP}
+	# CONFIG_FILE=${CONFIG_FILE}
+	# AutoBuild_Features=${AutoBuild_Features}
+	# x86_Full_Images=${x86_Full_Images}
+	# AutoBuild_Fw=${AutoBuild_Fw}
+	# CustomFiles=${GITHUB_WORKSPACE}/CustomFiles
+	# Scripts=${GITHUB_WORKSPACE}/Scripts
+	# BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files
+	# FEEDS_LUCI=${GITHUB_WORKSPACE}/openwrt/package/feeds/luci
+	# FEEDS_PKG=${GITHUB_WORKSPACE}/openwrt/package/feeds/packages
+	# Default_Title="${Default_Title}"
+	# Regex_Skip="${Regex_Skip}"
+	# Version_File=${Version_File}
+	# Fw_MFormat=${Fw_MFormat}
+	# FEEDS_CONF=${WORK}/feeds.conf.default
+	# Author_URL=${Author_URL}
+	# ENV_FILE=${GITHUB_ENV}
+	# Compile_Date=${Compile_Date}
+	#
+	# Author=${Author}
+	# Github=${Github}
+	# TARGET_PROFILE=${TARGET_PROFILE}
+	# TARGET_BOARD=${TARGET_BOARD}
+	# TARGET_SUBTARGET=${TARGET_SUBTARGET}
+	# TARGET_FLAG=${TARGET_FLAG}
+	# OP_VERSION=${OP_VERSION}
+	# OP_AUTHOR=${OP_AUTHOR}
+	# OP_REPO=${OP_REPO}
+	# OP_BRANCH=${OP_BRANCH}
+	# EOF
+	# source ${GITHUB_ENV}
+	# ========== 注释结束 ==========
+
+	# 仅打印变量列表用于调试（可选）
+	echo -e "### VARIABLE LIST ###"
+	echo "WORK=${WORK}"
+	echo "CONFIG_TEMP=${CONFIG_TEMP}"
+	echo "CONFIG_FILE=${CONFIG_FILE}"
+	echo "AutoBuild_Features=${AutoBuild_Features}"
+	echo "x86_Full_Images=${x86_Full_Images}"
+	echo "AutoBuild_Fw=${AutoBuild_Fw}"
+	echo "CustomFiles=${GITHUB_WORKSPACE}/CustomFiles"
+	echo "Scripts=${GITHUB_WORKSPACE}/Scripts"
+	echo "BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files"
+	echo "FEEDS_LUCI=${GITHUB_WORKSPACE}/openwrt/package/feeds/luci"
+	echo "FEEDS_PKG=${GITHUB_WORKSPACE}/openwrt/package/feeds/packages"
+	echo "Default_Title=${Default_Title}"
+	echo "Regex_Skip=${Regex_Skip}"
+	echo "Version_File=${Version_File}"
+	echo "Fw_MFormat=${Fw_MFormat}"
+	echo "FEEDS_CONF=${WORK}/feeds.conf.default"
+	echo "Author_URL=${Author_URL}"
+	echo "Compile_Date=${Compile_Date}"
+	echo "Author=${Author}"
+	echo "Github=${Github}"
+	echo "TARGET_PROFILE=${TARGET_PROFILE}"
+	echo "TARGET_BOARD=${TARGET_BOARD}"
+	echo "TARGET_SUBTARGET=${TARGET_SUBTARGET}"
+	echo "TARGET_FLAG=${TARGET_FLAG}"
+	echo "OP_VERSION=${OP_VERSION}"
+	echo "OP_AUTHOR=${OP_AUTHOR}"
+	echo "OP_REPO=${OP_REPO}"
+	echo "OP_BRANCH=${OP_BRANCH}"
+	echo ""
+
 	ECHO "[Firmware_Diy_Start] Done"
 }
 
