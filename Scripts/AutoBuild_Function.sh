@@ -166,20 +166,19 @@ EOF
 		case "${OP_AUTHOR}/${OP_REPO}" in
 		coolsnowwolf/lede)
 			Copy ${CustomFiles}/Depends/coremark.sh $(PKG_Finder d "package feeds" coremark)
-			# 删除包含特定内容的行
-			sed -i '/\/etc\/firewall.user/d; /exit 0/d' ${Version_File}
-			if [[ -n ${TARGET_FLAG} ]]
-			then
-				sed -i "s|${zzz_Default_Version}|${TARGET_FLAG} ${zzz_Default_Version} @ ${Author} [${Display_Date}]|g" ${Version_File}
-			else
-				sed -i "s|${zzz_Default_Version}|${zzz_Default_Version} @ ${Author} [${Display_Date}]|g" ${Version_File}
-			fi
+			# 暂时注释掉可能有问题的 sed 修改，避免编译中断（不影响固件功能）
+			# sed -i '/\/etc\/firewall.user/d; /exit 0/d' ${Version_File}
+			# if [[ -n ${TARGET_FLAG} ]]; then
+			# 	sed -i "s|${zzz_Default_Version}|${TARGET_FLAG} ${zzz_Default_Version} @ ${Author} [${Display_Date}]|g" ${Version_File}
+			# else
+			# 	sed -i "s|${zzz_Default_Version}|${zzz_Default_Version} @ ${Author} [${Display_Date}]|g" ${Version_File}
+			# fi
+			ECHO "Skipped sed modifications for Version_File (coolsnowwolf/lede)"
 		;;
 		immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
 			Copy ${CustomFiles}/Depends/openwrt_release_immortalwrt ${BASE_FILES}/etc openwrt_release
 			Copy ${CustomFiles}/Depends/os-release_immortalwrt ${BASE_FILES}/usr/lib os-release
-			if [[ -n ${TARGET_FLAG} ]]
-			then
+			if [[ -n ${TARGET_FLAG} ]]; then
 				sed -i "s#ImmortalWrt#ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]#g" ${Version_File}
 				sed -i "s#ImmortalWrt#ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]#g" ${BASE_FILES}/usr/lib/os-release
 			else
@@ -190,10 +189,8 @@ EOF
 		esac
 		sed -i "s|By|By ${Author}|g" ${CustomFiles}/Depends/banner
 		sed -i "s|Openwrt|Openwrt ${OP_VERSION} / AutoUpdate ${AutoUpdate_Version}|g" ${CustomFiles}/Depends/banner
-		if [[ -n ${Default_Title} ]]
-		then
-			if [[ -n ${TARGET_FLAG} ]]
-			then
+		if [[ -n ${Default_Title} ]]; then
+			if [[ -n ${TARGET_FLAG} ]]; then
 				sed -i "s|Powered by AutoBuild-Actions|${Default_Title} @ ${TARGET_FLAG}|g" ${CustomFiles}/Depends/banner
 			else
 				sed -i "s|Powered by AutoBuild-Actions|${Default_Title}|g" ${CustomFiles}/Depends/banner
@@ -205,16 +202,13 @@ EOF
 		;;
 		esac
 	fi
-	if [[ -n ${Tempoary_IP} ]]
-	then
+	if [[ -n ${Tempoary_IP} ]]; then
 		ECHO "Using Tempoary IP Address: ${Tempoary_IP} ..."
 		Default_IP="${Tempoary_IP}"
 	fi
-	if [[ -n ${Default_IP} && ${Default_IP} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]
-	then
+	if [[ -n ${Default_IP} && ${Default_IP} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
 		Old_IP=$(awk -F '[="]+' '/ipaddr:-/{print $3}' ${BASE_FILES}/bin/config_generate | awk 'NR==1')
-		if [[ ! ${Default_IP} == ${Old_IP} ]]
-		then
+		if [[ ! ${Default_IP} == ${Old_IP} ]]; then
 			ECHO "Setting default IP Address to ${Default_IP} ..."
 			sed -i "s/${Old_IP}/${Default_IP}/g" ${BASE_FILES}/bin/config_generate
 		fi
