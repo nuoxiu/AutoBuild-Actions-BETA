@@ -102,62 +102,132 @@ Firmware_Diy_Start() {
 	# AutoBuild_Fw=${AutoBuild_Fw}
 	# CustomFiles=${GITHUB_WORKSPACE}/CustomFiles
 	# Scripts=${GITHUB_WORKSPACE}/Scripts
-	# BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files
-	# FEEDS_LUCI=${GITHUB_WORKSPACE}/openwrt/package/feeds/luci
-	# FEEDS_PKG=${GITHUB_WORKSPACE}/openwrt/package/feeds/packages
-	# Default_Title="${Default_Title}"
-	# Regex_Skip="${Regex_Skip}"
-	# Version_File=${Version_File}
-	# Fw_MFormat=${Fw_MFormat}
-	# FEEDS_CONF=${WORK}/feeds.conf.default
-	# Author_URL=${Author_URL}
-	# ENV_FILE=${GITHUB_ENV}
-	# Compile_Date=${Compile_Date}
-	#
-	# Author=${Author}
-	# Github=${Github}
-	# TARGET_PROFILE=${TARGET_PROFILE}
-	# TARGET_BOARD=${TARGET_BOARD}
-	# TARGET_SUBTARGET=${TARGET_SUBTARGET}
-	# TARGET_FLAG=${TARGET_FLAG}
-	# OP_VERSION=${OP_VERSION}
-	# OP_AUTHOR=${OP_AUTHOR}
-	# OP_REPO=${OP_REPO}
-	# OP_BRANCH=${OP_BRANCH}
-	# EOF
-	# source ${GITHUB_ENV}
-	# ========== 注释结束 ==========
+Firmware_Diy_Start() {
+	ECHO "[Firmware_Diy_Start] Starting ..."
+	WORK="${GITHUB_WORKSPACE}/openwrt"
+	CONFIG_TEMP="${WORK}/.config"
+	CD ${WORK}
+	OP_REPO="$(basename $(cut -d ':' -f1 <<< ${DEFAULT_SOURCE}))"
+	OP_AUTHOR="$(cut -d '/' -f1 <<< ${DEFAULT_SOURCE})"
+	OP_BRANCH="$(cut -d ':' -f2 <<< ${DEFAULT_SOURCE})"
+	Firmware_Diy_Core
+	[[ ${Short_Fw_Date} == true ]] && Compile_Date="$(cut -c1-8 <<< ${Compile_Date})"
+	Github="$(egrep -o 'https://github.com/.+' ${GITHUB_WORKSPACE}/.git/config | awk 'NR==1')"
+	[[ -z ${Author} || ${Author} == AUTO ]] && Author="$(cut -d "/" -f4 <<< ${Github} | awk 'NR==1')"
+	if [[ ${OP_BRANCH} =~ (master|main) ]]
+	then
+		OP_VERSION_HEAD="R$(date +%y.%m)-"
+	else
+		OP_VERSION_HEAD="R$(egrep -o "[0-9]+.[0-9]+" <<< ${OP_BRANCH} | awk 'NR==1')-"
+	fi
+	case "${OP_AUTHOR}/${OP_REPO}" in
+	coolsnowwolf/lede)
+		Version_File=package/lean/default-settings/files/zzz-default-settings
+		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File})"
+		OP_VERSION="${zzz_Default_Version}-${Compile_Date}"
+	;;
+	immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
+		Version_File=package/base-files/files/etc/openwrt_release
+		OP_VERSION="${OP_VERSION_HEAD}${Compile_Date}"
+	;;
+	*)
+		OP_VERSION="${OP_VERSION_HEAD}${Compile_Date}"
+	;;
+	esac
+	while [[ -z ${x86_Test} ]]
+	do
+		x86_Test="$(egrep -o "CONFIG_TARGET.*DEVICE.*=y" ${CONFIG_TEMP} | sed -r 's/CONFIG_TARGET_(.*)_DEVICE_(.*)=y/\1/')"
+		[[ -n ${x86_Test} ]] && break
+		x86_Test="$(egrep -o "CONFIG_TARGET.*Generic=y" ${CONFIG_TEMP} | sed -r 's/CONFIG_TARGET_(.*)_Generic=y/\1/')"
+		[[ -z ${x86_Test} ]] && break
+	done
+	if [[ ${x86_Test} == x86_64 ]]
+	then
+		TARGET_PROFILE=x86_64
+	else
+		TARGET_PROFILE="$(egrep -o "CONFIG_TARGET.*DEVICE.*=y" ${CONFIG_TEMP} | sed -r 's/.*DEVICE_(.*)=y/\1/')"
+	fi
+	TARGET_BOARD="$(awk -F '[="]+' '/TARGET_BOARD/{print $2}' ${CONFIG_TEMP})"
+	TARGET_SUBTARGET="$(awk -F '[="]+' '/TARGET_SUBTARGET/{print $2}' ${CONFIG_TEMP})"
+	if [[ -z ${Fw_MFormat} || ${Fw_MFormat} == AUTO ]]
+	then
+		case "${TARGET_BOARD}" in
+		ramips | reltek | ath* | ipq* | bcm47xx | bmips | kirkwood | mediatek)
+			Fw_MFormat=bin
+		;;
+		rockchip | x86 | bcm27xx | mxs | sunxi | zynq)
+			Fw_MFormat="$(gz_Check)"
+		;;
+		mvebu)
+			case "${TARGET_SUBTARGET}" in
+			cortexa53 | cortexa72)
+				Fw_MFormat="$(gz_Check)"
+			;;
+			esac
+		;;
+		octeon | oxnas | pistachio)
+			Fw_MFormat=tar
+		;;
+		esac
+	fi
+	[[ ${Author_URL} != false && ${Author_URL} == AUTO ]] && Author_URL="${Github}"
+	[[ ${Author_URL} == false ]] && unset Author_URL
+	if [[ ${Default_Flag} == AUTO ]]
+	then
+		TARGET_FLAG=${CONFIG_FILE/${TARGET_PROFILE}-/}
+		[[ ${TARGET_FLAG} =~ ${TARGET_PROFILE} || -z ${TARGET_FLAG} || ${TARGET_FLAG} == ${CONFIG_FILE} ]] && TARGET_FLAG=Full
+	else
+		if [[ ! ${Default_Flag} =~ (\"|=|-|_|\.|\#|\|) && ${Default_Flag} =~ [a-zA-Z0-9] ]]
+		then
+			TARGET_FLAG="${Default_Flag}"
+		fi
+	fi
+	if [[ ! ${Tempoary_FLAG} =~ (\"|=|-|_|\.|\#|\|) && ${Tempoary_FLAG} =~ [a-zA-Z0-9] && ${Tempoary_FLAG} != AUTO ]]
+	then
+		TARGET_FLAG="${Tempoary_FLAG}"
+	fi
+	# 不再生成 AutoBuild_Fw 变量（避免格式问题）
+	# AutoBuild_Fw 将在后续 Process_Fw 中动态生成，无需写入环境变量
 
-	# 仅打印变量列表用于调试（可选）
+	# 安全写入环境变量：只写入必要且值中不含换行符的变量
+	# 对可能包含换行符的变量进行净化
+	clean_value() {
+		echo "$1" | tr -d '\n\r' | sed 's/"/\\"/g'
+	}
+	cat >> ${GITHUB_ENV} <<EOF
+WORK=$(clean_value "${WORK}")
+CONFIG_TEMP=$(clean_value "${CONFIG_TEMP}")
+CONFIG_FILE=$(clean_value "${CONFIG_FILE}")
+AutoBuild_Features=$(clean_value "${AutoBuild_Features}")
+x86_Full_Images=$(clean_value "${x86_Full_Images}")
+CustomFiles=$(clean_value "${GITHUB_WORKSPACE}/CustomFiles")
+Scripts=$(clean_value "${GITHUB_WORKSPACE}/Scripts")
+BASE_FILES=$(clean_value "${GITHUB_WORKSPACE}/openwrt/package/base-files/files")
+FEEDS_LUCI=$(clean_value "${GITHUB_WORKSPACE}/openwrt/package/feeds/luci")
+FEEDS_PKG=$(clean_value "${GITHUB_WORKSPACE}/openwrt/package/feeds/packages")
+Default_Title=$(clean_value "${Default_Title}")
+Regex_Skip=$(clean_value "${Regex_Skip}")
+Version_File=$(clean_value "${Version_File}")
+Fw_MFormat=$(clean_value "${Fw_MFormat}")
+FEEDS_CONF=$(clean_value "${WORK}/feeds.conf.default")
+Author_URL=$(clean_value "${Author_URL}")
+Compile_Date=$(clean_value "${Compile_Date}")
+Author=$(clean_value "${Author}")
+Github=$(clean_value "${Github}")
+TARGET_PROFILE=$(clean_value "${TARGET_PROFILE}")
+TARGET_BOARD=$(clean_value "${TARGET_BOARD}")
+TARGET_SUBTARGET=$(clean_value "${TARGET_SUBTARGET}")
+TARGET_FLAG=$(clean_value "${TARGET_FLAG}")
+OP_AUTHOR=$(clean_value "${OP_AUTHOR}")
+OP_REPO=$(clean_value "${OP_REPO}")
+OP_BRANCH=$(clean_value "${OP_BRANCH}")
+EOF
+	# 注意：没有写入 OP_VERSION 和 AutoBuild_Fw，避免格式问题
+	source ${GITHUB_ENV}
+
+	# 打印变量列表（用于调试）
 	echo -e "### VARIABLE LIST ###"
-	echo "WORK=${WORK}"
-	echo "CONFIG_TEMP=${CONFIG_TEMP}"
-	echo "CONFIG_FILE=${CONFIG_FILE}"
-	echo "AutoBuild_Features=${AutoBuild_Features}"
-	echo "x86_Full_Images=${x86_Full_Images}"
-	echo "AutoBuild_Fw=${AutoBuild_Fw}"
-	echo "CustomFiles=${GITHUB_WORKSPACE}/CustomFiles"
-	echo "Scripts=${GITHUB_WORKSPACE}/Scripts"
-	echo "BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files"
-	echo "FEEDS_LUCI=${GITHUB_WORKSPACE}/openwrt/package/feeds/luci"
-	echo "FEEDS_PKG=${GITHUB_WORKSPACE}/openwrt/package/feeds/packages"
-	echo "Default_Title=${Default_Title}"
-	echo "Regex_Skip=${Regex_Skip}"
-	echo "Version_File=${Version_File}"
-	echo "Fw_MFormat=${Fw_MFormat}"
-	echo "FEEDS_CONF=${WORK}/feeds.conf.default"
-	echo "Author_URL=${Author_URL}"
-	echo "Compile_Date=${Compile_Date}"
-	echo "Author=${Author}"
-	echo "Github=${Github}"
-	echo "TARGET_PROFILE=${TARGET_PROFILE}"
-	echo "TARGET_BOARD=${TARGET_BOARD}"
-	echo "TARGET_SUBTARGET=${TARGET_SUBTARGET}"
-	echo "TARGET_FLAG=${TARGET_FLAG}"
-	echo "OP_VERSION=${OP_VERSION}"
-	echo "OP_AUTHOR=${OP_AUTHOR}"
-	echo "OP_REPO=${OP_REPO}"
-	echo "OP_BRANCH=${OP_BRANCH}"
+	cat ${GITHUB_ENV}
 	echo ""
 
 	ECHO "[Firmware_Diy_Start] Done"
