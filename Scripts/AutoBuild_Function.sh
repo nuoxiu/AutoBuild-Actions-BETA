@@ -108,10 +108,37 @@ Firmware_Diy_Start() {
 Firmware_Diy_Main() {
 	ECHO "[Firmware_Diy_Main] Starting ..."
 	CD ${WORK}
-	# 确保 Scripts 和 CustomFiles 变量已定义（防止未从环境变量继承）
+	
+	# ========== 强制重新定义所有路径变量 ==========
 	Scripts="${GITHUB_WORKSPACE}/Scripts"
 	CustomFiles="${GITHUB_WORKSPACE}/CustomFiles"
+	BASE_FILES="${GITHUB_WORKSPACE}/openwrt/package/base-files/files"
+	FEEDS_LUCI="${GITHUB_WORKSPACE}/openwrt/package/feeds/luci"
+	FEEDS_PKG="${GITHUB_WORKSPACE}/openwrt/package/feeds/packages"
+	Version_File="package/lean/default-settings/files/zzz-default-settings"
+	# 其他可能用到的变量（从 Firmware_Diy_Start 中复制）
+	AutoBuild_Features="${AutoBuild_Features:-true}"
+	x86_Full_Images="${x86_Full_Images:-false}"
+	Author="${Author:-nuoxiu}"
+	Github="${Github:-https://github.com/nuoxiu/AutoBuild-Actions-BETA}"
+	TARGET_PROFILE="${TARGET_PROFILE:-d-team_newifi-d2}"
+	TARGET_BOARD="${TARGET_BOARD:-ramips}"
+	TARGET_SUBTARGET="${TARGET_SUBTARGET:-mt7621}"
+	TARGET_FLAG="${TARGET_FLAG:-Clash}"
+	OP_VERSION="${OP_VERSION:-R26.02.20}"
+	OP_AUTHOR="${OP_AUTHOR:-coolsnowwolf}"
+	OP_REPO="${OP_REPO:-lede}"
+	OP_BRANCH="${OP_BRANCH:-master}"
+	Default_Title="${Default_Title:-Powered by AutoBuild-Actions}"
+	Regex_Skip="${Regex_Skip:-packages|buildinfo|sha256sums|manifest|kernel|rootfs|factory|itb|profile|ext4|json}"
+	Fw_MFormat="${Fw_MFormat:-bin}"
+	FEEDS_CONF="${FEEDS_CONF:-${WORK}/feeds.conf.default}"
+	Author_URL="${Author_URL:-https://github.com/nuoxiu/AutoBuild-Actions-BETA}"
+	Compile_Date="${Compile_Date:-$(date +%Y%m%d)}"
+	# ==============================================
+	
 	chmod 777 -R ${Scripts} ${CustomFiles}
+	
 	if [[ ${AutoBuild_Features} == true ]]
 	then
 		AddPackage other Hyy2001X AutoBuild-Packages master
@@ -188,7 +215,12 @@ EOF
 			sed -i "s/${Old_IP}/${Default_IP}/g" ${BASE_FILES}/bin/config_generate
 		fi
 	fi
- 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
+ 	echo -e "### VARIABLE LIST (after Firmware_Diy_Main) ###"
+ 	echo "WORK=${WORK}"
+ 	echo "CONFIG_FILE=${CONFIG_FILE}"
+ 	echo "TARGET_PROFILE=${TARGET_PROFILE}"
+ 	echo "TARGET_BOARD=${TARGET_BOARD}"
+ 	echo "TARGET_FLAG=${TARGET_FLAG}"
 	ECHO "[Firmware_Diy_Main] Done"
 }
 
