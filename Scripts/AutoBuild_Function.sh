@@ -97,7 +97,8 @@ CONFIG_TEMP=${CONFIG_TEMP}
 CONFIG_FILE=${CONFIG_FILE}
 AutoBuild_Features=${AutoBuild_Features}
 x86_Full_Images=${x86_Full_Images}
-AutoBuild_Fw=${AutoBuild_Fw}
+# AutoBuild_Fw=${AutoBuild_Fw}
+printf "AutoBuild_Fw=%s\n" "${AutoBuild_Fw}" >> ${GITHUB_ENV}
 CustomFiles=${GITHUB_WORKSPACE}/CustomFiles
 Scripts=${GITHUB_WORKSPACE}/Scripts
 BASE_FILES=${GITHUB_WORKSPACE}/openwrt/package/base-files/files
@@ -124,7 +125,7 @@ OP_REPO=${OP_REPO}
 OP_BRANCH=${OP_BRANCH}
 EOF
 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
-	source ${GITHUB_ENV}
+	# source ${GITHUB_ENV}
 	ECHO "[Firmware_Diy_Start] Done"
 }
 
