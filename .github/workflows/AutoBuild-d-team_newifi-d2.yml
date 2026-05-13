@@ -123,7 +123,7 @@ jobs:
       if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
       uses: easimon/maximize-build-space@master
       with: 
-        root-reserve-mb: 4096
+        root-reserve-mb: 51200
         swap-size-mb: 100
         remove-dotnet: 'true'
         remove-android: 'true'
