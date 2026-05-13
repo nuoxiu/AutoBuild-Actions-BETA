@@ -206,7 +206,11 @@ jobs:
         sudo -E apt -y autoremove --purge
         sudo -E apt clean
         sudo timedatectl set-timezone "Asia/Shanghai"
-
+        # 升级 CMake 以支持 rpcd-mod-luci 等包
+        wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.31.5/cmake-3.31.5-linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr/local
+        export PATH=/usr/local/bin:$PATH
+        cmake --version
+        
     - name: Clone Openwrt Source Code
       run: |
         git clone -b $REPO_BRANCH $REPO_URL openwrt
