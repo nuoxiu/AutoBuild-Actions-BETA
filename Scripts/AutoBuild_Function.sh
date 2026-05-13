@@ -1,3 +1,10 @@
+#!/bin/bash
+
+# ============================================================
+# 注意：Firmware_Diy_Core 应该在 AutoBuild_DiyScript.sh 中定义
+# 这里不重复定义，只保留调用
+# ============================================================
+
 Firmware_Diy_Start() {
 	ECHO "[Firmware_Diy_Start] Starting ..."
 	WORK="${GITHUB_WORKSPACE}/openwrt"
@@ -69,9 +76,7 @@ Firmware_Diy_Start() {
 		TARGET_FLAG="${Tempoary_FLAG}"
 	fi
 
-	# ========== 关键修改：不再写入任何内容到 GITHUB_ENV ==========
-	# 所有变量都在当前 shell 中定义，子函数可直接使用。
-	# 仅打印变量列表用于调试
+	# 不再写入 GITHUB_ENV，仅打印
 	echo -e "### VARIABLE LIST (shell variables) ###"
 	echo "WORK=${WORK}"
 	echo "CONFIG_TEMP=${CONFIG_TEMP}"
@@ -166,26 +171,17 @@ EOF
 		case "${OP_AUTHOR}/${OP_REPO}" in
 		coolsnowwolf/lede)
 			Copy ${CustomFiles}/Depends/coremark.sh $(PKG_Finder d "package feeds" coremark)
-			# 跳过所有 sed 修改（避免因特殊字符导致失败）
+			# 跳过 sed 修改，避免出错
 			ECHO "Skipped sed modifications for Version_File and banner (coolsnowwolf/lede)"
 		;;
 		immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
 			Copy ${CustomFiles}/Depends/openwrt_release_immortalwrt ${BASE_FILES}/etc openwrt_release
 			Copy ${CustomFiles}/Depends/os-release_immortalwrt ${BASE_FILES}/usr/lib os-release
-			# 也跳过 sed 修改
 			ECHO "Skipped sed modifications for ImmortalWrt files"
 		;;
 		esac
-		# 注释掉所有 banner 相关的 sed 修改
-		# sed -i "s|By|By ${Author}|g" ${CustomFiles}/Depends/banner
-		# sed -i "s|Openwrt|Openwrt ${OP_VERSION} / AutoUpdate ${AutoUpdate_Version}|g" ${CustomFiles}/Depends/banner
-		# if [[ -n ${Default_Title} ]]; then
-		# 	if [[ -n ${TARGET_FLAG} ]]; then
-		# 		sed -i "s|Powered by AutoBuild-Actions|${Default_Title} @ ${TARGET_FLAG}|g" ${CustomFiles}/Depends/banner
-		# 	else
-		# 		sed -i "s|Powered by AutoBuild-Actions|${Default_Title}|g" ${CustomFiles}/Depends/banner
-		# 	fi
-		# fi
+		# 跳过 banner 相关的 sed 修改
+		# sed -i ... (已注释)
 		case "${OP_AUTHOR}/${OP_REPO}" in
 		*)
 			Copy ${CustomFiles}/Depends/banner ${BASE_FILES}/etc
@@ -324,7 +320,7 @@ EOF
 
 Firmware_Diy_End() {
 	ECHO "[Firmware_Diy_End] Starting ..."
-	source ${GITHUB_ENV}
+	# source ${GITHUB_ENV}   # 已注释
 	ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
 	cd ${WORK}
 	echo -e "### FIRMWARE OUTPUT ###"
@@ -582,79 +578,82 @@ ReleaseDL() {
 	rm -f ${API_FILE}
 }
 
+# ============================================================
+# 容错版 ClashDL 函数
+# ============================================================
 ClashDL() {
 	TMP_PATH=/opt/OpenClash
 	
 	PLATFORM=$1
 	CORE_TYPE=$2
 	
-	if [[ ! -n $(ls -1 $TMP_PATH 2> /dev/null) ]]
-	then
-		git clone -b core --depth=1 https://github.com/vernesong/OpenClash $TMP_PATH
+	if [[ ! -d ${TMP_PATH} ]]; then
+		ECHO "Cloning OpenClash core repository..."
+		git clone -b core --depth=1 https://github.com/vernesong/OpenClash ${TMP_PATH} || {
+			ECHO "Failed to clone OpenClash core repository. OpenClash core may not be available."
+			return 0
+		}
 	fi
 	
 	case $CORE_TYPE in
 	dev | meta)
-		CORE_PATH=$TMP_PATH/dev/$CORE_TYPE
+		CORE_PATH=${TMP_PATH}/dev/${CORE_TYPE}
 	;;
 	premium | tun)
-		CORE_PATH=$TMP_PATH/dev/premium
-	;;
-	esac
-	
-	CORE=(
-		$(ls -1 $CORE_PATH | grep "clash-linux-$PLATFORM" | tr '\n' ' ')
-	)
-	
-	case $CORE_TYPE in
-	dev | meta)
-		IS_CORE="clash-linux-${PLATFORM}.tar.gz"
-		if [[ -f ${CORE_PATH}/${IS_CORE} ]]
-		then
-			TARGET_CORE=${IS_CORE}
-		fi
+		CORE_PATH=${TMP_PATH}/dev/premium
 	;;
 	*)
-		IS_CORE=$(ls -1 $CORE_PATH | egrep -o "clash-linux-${PLATFORM}-[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[A-Za-z0-9]+\.gz")
-		if [[ ${IS_CORE} && -f ${CORE_PATH}/${IS_CORE} ]]
-		then
-			TARGET_CORE=${IS_CORE}
-		fi
+		ECHO "Unknown core type: $CORE_TYPE"
+		return 0
+	;;
 	esac
 	
-	if [[ ! $TARGET_CORE ]]
-	then
-		ECHO "$PLATFORM $CORE_TYPE Not found"
-		for i in meta
-		do
-			cd $TMP_PATH/dev/$i
-			SUP_PLATDORM=$(ls -1 2> /dev/null | sed -r 's/clash-linux-(.*).tar.gz/\1/')
-			ECHO "CORE Supported platform: \n$SUP_PLATDORM"
-			cd - > /dev/null
-		done
-		return
-	else
-		ECHO "TARGET_CORE: $TARGET_CORE"
+	if [[ ! -d ${CORE_PATH} ]]; then
+		ECHO "Core path ${CORE_PATH} does not exist. Skipping ${CORE_TYPE} core download."
+		return 0
 	fi
-	MKDIR ${BASE_FILES}/etc/openclash/core
+	
+	# 查找匹配的核心文件
+	local core_file=""
 	case $CORE_TYPE in
 	dev | meta)
-		tar -xvzf $CORE_PATH/$TARGET_CORE -C ${TMP_PATH}
-		if [[ $CORE_TYPE == dev ]]
-		then
+		core_file=$(ls -1 ${CORE_PATH}/clash-linux-${PLATFORM}.tar.gz 2>/dev/null)
+	;;
+	premium | tun)
+		core_file=$(ls -1 ${CORE_PATH}/clash-linux-${PLATFORM}-*.gz 2>/dev/null | head -1)
+	;;
+	esac
+	
+	if [[ -z ${core_file} ]]; then
+		ECHO "No core file found for platform ${PLATFORM} and type ${CORE_TYPE} in ${CORE_PATH}"
+		return 0
+	fi
+	
+	ECHO "Found core file: $(basename ${core_file})"
+	
+	MKDIR ${BASE_FILES}/etc/openclash/core 2>/dev/null
+	
+	case $CORE_TYPE in
+	dev | meta)
+		tar -xvzf ${core_file} -C ${TMP_PATH} || {
+			ECHO "Failed to extract core"
+			return 0
+		}
+		if [[ $CORE_TYPE == dev ]]; then
 			chmod 777 ${TMP_PATH}/clash
 			mv -f ${TMP_PATH}/clash ${BASE_FILES}/etc/openclash/core/clash
 			ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash)"
-		fi
-		if [[ $CORE_TYPE == meta ]]
-		then
+		elif [[ $CORE_TYPE == meta ]]; then
 			chmod 777 ${TMP_PATH}/clash
 			mv -f ${TMP_PATH}/clash ${BASE_FILES}/etc/openclash/core/clash_meta
 			ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash_meta)"
 		fi
 	;;
 	premium | tun)
-		gzip -dk -c $CORE_PATH/$TARGET_CORE > ${TMP_PATH}/clash_tun
+		gzip -dk -c ${core_file} > ${TMP_PATH}/clash_tun || {
+			ECHO "Failed to extract premium core"
+			return 0
+		}
 		chmod 777 ${TMP_PATH}/clash_tun
 		mv -f ${TMP_PATH}/clash_tun ${BASE_FILES}/etc/openclash/core/clash_tun
 		ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash_tun)"
