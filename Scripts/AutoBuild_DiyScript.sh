@@ -42,7 +42,7 @@ Firmware_Diy_Core() {
 	AutoBuild_Features=true
 	# 添加 AutoBuild 固件特性, true: [开启]; false: [关闭]
 	
-	AutoBuild_Features_Patch=false
+	AutoBuild_Features_Patch=true
 	AutoBuild_Features_Kconfig=false
 }
 
