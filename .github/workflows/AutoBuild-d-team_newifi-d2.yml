@@ -263,12 +263,14 @@ jobs:
     - name: Build OpenWrt
       id: compile
       run: |
-        # 强制优先使用 /usr/bin 中的 CMake
-        export PATH=/usr/bin:$PATH
-        echo "=== CMake version used by make ==="
-        which cmake
-        cmake --version
         cd openwrt
+        # 修复 rpcd-mod-luci 的 CMake 版本要求
+        if [ -f feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt ]; then
+          sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt
+          echo "CMake version requirement lowered for rpcd-mod-luci"
+        else
+          echo "Warning: feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt not found, skipping fix"
+        fi
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
 
