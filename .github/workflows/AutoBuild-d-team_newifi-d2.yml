@@ -248,6 +248,8 @@ jobs:
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
         make defconfig
         Firmware_Diy_Start
+        # 修复 rpcd-mod-luci 的 CMake 版本要求（临时降低到 3.5）
+        sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' openwrt/feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt
         rm -f .config && cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         Firmware_Diy_Main
         Firmware_Diy
