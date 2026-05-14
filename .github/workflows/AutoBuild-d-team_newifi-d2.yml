@@ -265,37 +265,27 @@ jobs:
       run: |
         cd openwrt
         
-        # ========== 修复 rpcd-mod-luci 的 CMake 版本要求 ==========
-        echo "Searching for rpcd-mod-luci CMakeLists.txt..."
-        TARGET_FILE=$(find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -o -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" | head -1)
-        if [ -n "$TARGET_FILE" ]; then
-          sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$TARGET_FILE"
-          echo "✅ Patched $TARGET_FILE"
-        else
-          echo "⚠️ Could not find rpcd-mod-luci CMakeLists.txt, trying fallback..."
-          find . -name "CMakeLists.txt" -exec grep -l "rpcd-mod-luci" {} \; | while read f; do
-            sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$f"
-            echo "✅ Patched fallback: $f"
-          done
-        fi
+        # 修复 rpcd-mod-luci 的 CMake 版本要求
+        echo "Fixing rpcd-mod-luci CMake version..."
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
         
-        # ========== 修复 rpcd-mod-rrdns 的编译错误 ==========
-        echo "Searching for rpcd-mod-rrdns source files..."
+        # 修复 rpcd-mod-rrdns 的 CMake 版本要求（新增）
+        echo "Fixing rpcd-mod-rrdns CMake version..."
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-rrdns/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-rrdns-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
+        
+        # 可选：修复 rpcd-mod-rrdns 的 C 代码中的 resolv.h 问题（如果之前的 C 代码修复也需要）
         RRDNS_SRC=$(find . -path "*/rpcd-mod-rrdns/*.c" | head -1)
         if [ -n "$RRDNS_SRC" ]; then
-          echo "Found $RRDNS_SRC, applying fixes..."
-          # 注释掉 #include <resolv.h>
+          echo "Applying resolv.h fix to $RRDNS_SRC"
           sed -i 's/^#include <resolv.h>/\/\/ &/' "$RRDNS_SRC"
-          # 注释掉 res_init() 调用
           sed -i 's/^[ \t]*res_init();/\/\/ &/' "$RRDNS_SRC"
-          echo "✅ rpcd-mod-rrdns fix applied."
-        else
-          echo "⚠️ rpcd-mod-rrdns source not found, skipping fix."
         fi
         
-        # ========== 开始编译 ==========
+        # 开始编译
         make -j4 || make -j1 V=s
-        [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
+        [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV 
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
