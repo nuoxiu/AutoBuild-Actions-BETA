@@ -264,12 +264,19 @@ jobs:
       id: compile
       run: |
         cd openwrt
-        # 修复 rpcd-mod-luci 的 CMake 版本要求
-        if [ -f feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt ]; then
-          sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt
-          echo "CMake version requirement lowered for rpcd-mod-luci"
+        # 搜索并修改 rpcd-mod-luci 的 CMakeLists.txt（不区分路径）
+        echo "Searching for rpcd-mod-luci CMakeLists.txt..."
+        TARGET_FILE=$(find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -o -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" | head -1)
+        if [ -n "$TARGET_FILE" ]; then
+          sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$TARGET_FILE"
+          echo "✅ Patched $TARGET_FILE"
         else
-          echo "Warning: feeds/luci/libs/rpcd-mod-luci/CMakeLists.txt not found, skipping fix"
+          echo "⚠️ Could not find rpcd-mod-luci CMakeLists.txt, trying fallback..."
+          # 备选：直接修改所有可能的位置（谨慎使用）
+          find . -name "CMakeLists.txt" -exec grep -l "rpcd-mod-luci" {} \; | while read f; do
+            sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$f"
+            echo "✅ Patched fallback: $f"
+          done
         fi
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
