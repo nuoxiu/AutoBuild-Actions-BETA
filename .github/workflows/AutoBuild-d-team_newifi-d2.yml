@@ -206,10 +206,13 @@ jobs:
         sudo -E apt -y autoremove --purge
         sudo -E apt clean
         sudo timedatectl set-timezone "Asia/Shanghai"
-        # 彻底移除系统 cmake 并安装新版
+        # 彻底移除所有旧版 CMake
         sudo apt-get remove -y cmake
+        sudo rm -f /usr/local/bin/cmake
+        # 安装新版到 /usr
         wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.31.5/cmake-3.31.5-linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr
         hash -r
+        which cmake
         cmake --version
 
     - name: Clone Openwrt Source Code
@@ -260,6 +263,8 @@ jobs:
     - name: Build OpenWrt
       id: compile
       run: |
+        # 强制优先使用 /usr/bin 中的 CMake
+        export PATH=/usr/bin:$PATH
         echo "=== CMake version used by make ==="
         which cmake
         cmake --version
