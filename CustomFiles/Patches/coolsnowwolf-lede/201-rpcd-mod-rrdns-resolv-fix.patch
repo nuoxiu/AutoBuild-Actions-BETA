@@ -1,0 +1,45 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.31)
++cmake_minimum_required(VERSION 3.5)
+ 
+ project(rpcd-mod-rrdns)
+ 
+--- a/rrdns.c
++++ b/rrdns.c
+@@ -14,7 +14,10 @@
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++// Patch: Comment out non-musl compatible headers and functions
++/*
+ #include <resolv.h>
++*/
+ 
+ #include <libubox/uloop.h>
+ #include <libubox/ustream.h>
+@@ -175,7 +178,10 @@ static void rrdns_next_query(struct rrdns_request *req, int idx, int n)
+ {
+        char *dname = req->dname + idx;
+        unsigned char query[512];
+-       int alen = res_mkquery(QUERY, dname, C_IN, T_PTR, NULL, 0, NULL, query, 512);
++       int alen;
++       // Patch: Comment out non-musl compatible functions
++       // int alen = res_mkquery(QUERY, dname, C_IN, T_PTR, NULL, 0, NULL, query, 512);
++       alen = -1;
+        struct sockaddr_in *sin;
+ 
+        if (alen <= 0) {
+@@ -188,7 +194,10 @@ static void rrdns_init(void)
+        struct sockaddr_in sin;
+        int fd;
+ 
+-       res_init();
++       // Patch: Comment out non-musl compatible functions
++       // res_init();
++       // For musl, resolver state is static, call may be unnecessary.
++       
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_family = AF_INET;
+        sin.sin_addr.s_addr = htonl(INADDR_ANY);
