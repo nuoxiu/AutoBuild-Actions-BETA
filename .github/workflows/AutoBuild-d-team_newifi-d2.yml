@@ -261,18 +261,41 @@ jobs:
         make download -j8
 
     - name: Build OpenWrt
+    - name: Build OpenWrt
       id: compile
       run: |
         cd openwrt
-        
-        # 修复 rpcd-mod-luci 的 CMake 版本要求（保留原有的 sed 修复，因为补丁可能还没做）
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        
-        # rpcd-mod-rrdns 已通过补丁修复，无需额外 sed
-        
+    
+        # 1. 修复所有 rpcd-mod-* 包的 CMake 版本要求（地毯式搜索）
+        echo "Fixing CMake version for all rpcd-mod-* packages..."
+        find . -type f -name "CMakeLists.txt" -exec grep -l "rpcd-mod" {} \; | while read f; do
+          if grep -q "cmake_minimum_required(VERSION 3.31)" "$f"; then
+            sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$f"
+            echo "Patched: $f"
+          fi
+        done
+    
+        # 2. 修复 rpcd-mod-rrdns 的 C 代码（注释掉不兼容的函数）
+        echo "Fixing rpcd-mod-rrdns C code..."
+        find . -type f -name "rrdns.c" | while read src; do
+          # 注释掉 #include <resolv.h>
+          sed -i 's/^#include <resolv.h>/\/\/ &/' "$src"
+          # 注释掉 res_init() 调用
+          sed -i 's/^[ \t]*res_init();/\/\/ &/' "$src"
+          # 注释掉 res_mkquery 相关行（更精确）
+          sed -i '/res_mkquery/s/^/\/\//' "$src"
+          # 可选：将 alen 赋值为 -1 或 0 以防止未定义变量（上面注释后需要定义 alen）
+          # 这里简单处理：在 res_mkquery 行前添加 int alen = -1; 并注释原行，但有点复杂，先用上面的注释方式
+          # 为了确保变量定义，我们手动添加一行
+          sed -i '/int alen = res_mkquery/s/int alen = res_mkquery/\/\/ int alen = res_mkquery/' "$src"
+          sed -i '/int alen = res_mkquery/a\        int alen = -1;' "$src"
+          echo "Patched C code: $src"
+          done
+    
+        # 开始编译
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
+      
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
