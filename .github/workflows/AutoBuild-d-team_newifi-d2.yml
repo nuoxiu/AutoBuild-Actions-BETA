@@ -265,36 +265,44 @@ jobs:
       run: |
         cd openwrt
     
-        # 1. 修复所有 rpcd-mod-* 包的 CMake 版本要求（地毯式搜索）
+        # ========== 1. 修复所有 rpcd-mod-* 包的 CMake 版本要求 ==========
         echo "Fixing CMake version for all rpcd-mod-* packages..."
         find . -type f -name "CMakeLists.txt" -exec grep -l "rpcd-mod" {} \; | while read f; do
           if grep -q "cmake_minimum_required(VERSION 3.31)" "$f"; then
             sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' "$f"
-            echo "Patched: $f"
+            echo "Patched CMakeLists: $f"
           fi
         done
     
-        # 2. 修复 rpcd-mod-rrdns 的 C 代码（注释掉不兼容的函数）
-        echo "Fixing rpcd-mod-rrdns C code..."
+        # ========== 2. 彻底修复 rpcd-mod-rrdns 的 C 代码（强力版） ==========
+        echo "Fixing rpcd-mod-rrdns C code (aggressive)..."
         find . -type f -name "rrdns.c" | while read src; do
-          # 注释掉 #include <resolv.h>
+          echo "Processing $src"
+      
+          # 2.1 注释掉 #include <resolv.h>
           sed -i 's/^#include <resolv.h>/\/\/ &/' "$src"
-          # 注释掉 res_init() 调用
+      
+          # 2.2 删除或注释掉整个 rrdns_next_query 函数体，并替换为一个简单的返回失败
+          # 使用 awk 或更复杂的 sed 来匹配花括号，但为了避免复杂性，我们采用逐行删除关键行并插入替代逻辑
+          # 方案：注释掉 res_mkquery 调用，并强制让函数直接调用 abort_cb 并返回
+          # 首先，注释掉包含 res_mkquery 的行
+          sed -i '/res_mkquery/s/^/\/\/ /' "$src"
+          # 然后，在注释行之前插入 alen = -1 和直接失败返回
+          sed -i '/res_mkquery/i\        // Force failure: alen = -1;\n        req->abort_cb(req, idx);\n        return;' "$src"
+      
+          # 2.3 注释掉 res_init() 调用
           sed -i 's/^[ \t]*res_init();/\/\/ &/' "$src"
-          # 注释掉 res_mkquery 相关行（更精确）
-          sed -i '/res_mkquery/s/^/\/\//' "$src"
-          # 可选：将 alen 赋值为 -1 或 0 以防止未定义变量（上面注释后需要定义 alen）
-          # 这里简单处理：在 res_mkquery 行前添加 int alen = -1; 并注释原行，但有点复杂，先用上面的注释方式
-          # 为了确保变量定义，我们手动添加一行
-          sed -i '/int alen = res_mkquery/s/int alen = res_mkquery/\/\/ int alen = res_mkquery/' "$src"
-          sed -i '/int alen = res_mkquery/a\        int alen = -1;' "$src"
+      
+          # 2.4 注释掉对 res_ninit 等其他可能的调用（如果有）
+          sed -i 's/^[ \t]*res_ninit([^)]*);/\/\/ &/' "$src"
+      
           echo "Patched C code: $src"
-          done
+        done
     
-        # 开始编译
+        # ========== 3. 开始编译 ==========
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
-      
+
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
       run: |
