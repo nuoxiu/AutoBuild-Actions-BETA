@@ -241,17 +241,30 @@ jobs:
         cd openwrt
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]
         then
-            echo -e "\nCONFIG_DEVEL=y\nCONFIG_CCACHE=y\n" >> $GITHUB_WORKSPACE/Configs/$CONFIG_FILE
+        echo -e "\nCONFIG_DEVEL=y\nCONFIG_CCACHE=y\n" >> $GITHUB_WORKSPACE/Configs/$CONFIG_FILE
         fi
         cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
         make defconfig
+
+        # ========== 修复 rpcd-mod-rrdns 和 default-settings 依赖问题 ==========
+        # 1. 彻底删除有问题的包源码
+        rm -rf feeds/luci/libs/rpcd-mod-rrdns
+        # 2. 从配置中取消选中该包
+        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
+        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
+        # 3. 修复 default-settings 的 Makefile，移除对 rpcd-mod-rrdns 和 ucode-mod-log 的依赖
+        sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' package/lean/default-settings/Makefile 2>/dev/null || true
+        sed -i 's/ ucode-mod-log//' package/lean/default-settings/Makefile 2>/dev/null || true
+        # ================================================================
+
         Firmware_Diy_Start
         rm -f .config && cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
+
 
     - name: Pre-download Libraries
       run: |
@@ -264,19 +277,12 @@ jobs:
       id: compile
       run: |
         cd openwrt
-        
-        # ========== 1. 删除有问题的 rpcd-mod-rrdns 源码（彻底禁用） ==========
-        echo "Removing rpcd-mod-rrdns source code..."
-        rm -rf feeds/luci/libs/rpcd-mod-rrdns
-        # 同时从配置中取消选中（如果存在）
-        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config 2>/dev/null || true
-        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-        
-        # ========== 2. 修复 rpcd-mod-luci 的 CMake 版本（可选，如果之前没问题可省略） ==========
+    
+        # 1. 修复 rpcd-mod-luci 的 CMake 版本（如果需要）
         echo "Fixing rpcd-mod-luci CMake version..."
         find . -type f -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print 2>/dev/null || true
-        
-        # ========== 3. 开始编译 ==========
+    
+        # 2. 开始编译
         echo "Starting compilation..."
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
