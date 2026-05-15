@@ -1,5 +1,0 @@
---- a/feeds/luci/libs/rpcd-mod-rrdns/CMakeLists.txt
-+++ b/feeds/luci/libs/rpcd-mod-rrdns/CMakeLists.txt
-@@ -1,4 +1,4 @@
--cmake_minimum_required(VERSION 3.31)
-+cmake_minimum_required(VERSION 2.6)
