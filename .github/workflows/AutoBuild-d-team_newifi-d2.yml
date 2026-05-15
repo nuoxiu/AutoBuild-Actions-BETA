@@ -264,6 +264,13 @@ jobs:
       id: compile
       run: |
         cd openwrt
+        
+        # 修复 rpcd-mod-luci 的 CMake 版本要求（保留原有的 sed 修复，因为补丁可能还没做）
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
+        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
+        
+        # rpcd-mod-rrdns 已通过补丁修复，无需额外 sed
+        
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
 
