@@ -261,7 +261,6 @@ jobs:
         make download -j8
 
     - name: Build OpenWrt
-    - name: Build OpenWrt
       id: compile
       run: |
         cd openwrt
@@ -296,7 +295,6 @@ jobs:
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
       
-
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
       run: |
