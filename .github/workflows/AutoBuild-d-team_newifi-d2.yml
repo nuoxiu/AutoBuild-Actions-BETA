@@ -264,28 +264,8 @@ jobs:
       id: compile
       run: |
         cd openwrt
-        
-        # 修复 rpcd-mod-luci 的 CMake 版本要求
-        echo "Fixing rpcd-mod-luci CMake version..."
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-luci-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        
-        # 修复 rpcd-mod-rrdns 的 CMake 版本要求（新增）
-        echo "Fixing rpcd-mod-rrdns CMake version..."
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-rrdns/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        find . -name "CMakeLists.txt" -path "*/rpcd-mod-rrdns-*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print
-        
-        # 可选：修复 rpcd-mod-rrdns 的 C 代码中的 resolv.h 问题（如果之前的 C 代码修复也需要）
-        RRDNS_SRC=$(find . -path "*/rpcd-mod-rrdns/*.c" | head -1)
-        if [ -n "$RRDNS_SRC" ]; then
-          echo "Applying resolv.h fix to $RRDNS_SRC"
-          sed -i 's/^#include <resolv.h>/\/\/ &/' "$RRDNS_SRC"
-          sed -i 's/^[ \t]*res_init();/\/\/ &/' "$RRDNS_SRC"
-        fi
-        
-        # 开始编译
         make -j4 || make -j1 V=s
-        [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV 
+        [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
