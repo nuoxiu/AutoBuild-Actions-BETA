@@ -254,9 +254,15 @@ jobs:
         # 2. 从配置中取消选中该包
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-        # 3. 修复 default-settings 的 Makefile，移除对 rpcd-mod-rrdns 和 ucode-mod-log 的依赖
-        sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' package/lean/default-settings/Makefile 2>/dev/null || true
-        sed -i 's/ ucode-mod-log//' package/lean/default-settings/Makefile 2>/dev/null || true
+        # 3. 查找 default-settings 的 Makefile 并移除对缺失包的依赖
+        DS_MAKEFILE=$(find package -name "Makefile" -path "*/default-settings/Makefile" | head -1)
+        if [ -n "$DS_MAKEFILE" ]; then
+        sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' "$DS_MAKEFILE"
+        sed -i 's/ ucode-mod-log//' "$DS_MAKEFILE"
+        echo "Fixed $DS_MAKEFILE"
+        else
+        echo "Warning: default-settings Makefile not found"
+        fi
         # ================================================================
 
         Firmware_Diy_Start
@@ -264,7 +270,6 @@ jobs:
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
-
 
     - name: Pre-download Libraries
       run: |
