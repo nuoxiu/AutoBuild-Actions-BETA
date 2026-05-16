@@ -55,40 +55,10 @@ EOF
 		AddPackage msd_lite ximiTech luci-app-msd_lite main
 		AddPackage msd_lite ximiTech msd_lite main
 		
-		# 添加 SmartDNS
+		# 添加 SmartDNS (使用正确的仓库)
 		AddPackage other pymumu luci-app-smartdns master
 		
-		# 添加 DDNS
-		AddPackage other openwrt-packages luci-app-ddns master
-		
-		# 添加文件管理 (FileBrowser)
-		AddPackage other 99max/luci-app-filebrowser main
-		
-		# 添加 Samba4
-		AddPackage other openwrt-packages luci-app-samba4 master
-		
-		# 添加 VSFTPD
-		AddPackage other openwrt-packages luci-app-vsftpd master
-		
-		# 添加 ZeroTier
-		AddPackage other openwrt-packages luci-app-zerotier master
-		
-		# 添加 WOL
-		AddPackage other openwrt-packages luci-app-wol master
-		
-		# 添加 UPnP
-		AddPackage other openwrt-packages luci-app-upnp master
-		
-		# 添加 TurboACC 加速
-		AddPackage other jerrykuku luci-app-turboacc master
-		
-		# 添加 SQM QoS
-		AddPackage other openwrt-packages luci-app-sqm master
-		
-		# 添加广告过滤 (AdGuard Home)
-		AddPackage other openwrt-packages luci-app-adguardhome master
-		
-		# 添加微信推送 (ServerChan)
+		# 微信推送 (ServerChan)
 		AddPackage other tty228 luci-app-serverchan master
 		
 		# 移除冲突的包
