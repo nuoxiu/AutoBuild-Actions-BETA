@@ -62,8 +62,8 @@ on:
 ### 请按需求修改以下内容
 ### 环境变量设置
 env:
-# 编译时调用的 [.config] 文件名称
-  CONFIG_FILE: d-team_newifi-d2
+# 编译时调用的 [.config] 文件名称 (使用已有的 Clash 配置)
+  CONFIG_FILE: d-team_newifi-d2-Clash
 # 源码仓库:分支 (使用 master 分支，因为 20230609 不存在)
   DEFAULT_SOURCE: coolsnowwolf/lede:master
 # 删除无用文件以增加编译空间
