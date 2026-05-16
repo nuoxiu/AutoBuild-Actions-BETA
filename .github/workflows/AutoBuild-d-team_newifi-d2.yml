@@ -256,6 +256,18 @@ jobs:
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
+        
+        # ========== 移除有编译问题的包 ==========
+        echo "Removing problematic packages..."
+        rm -rf feeds/packages/net/nfs-kernel-server
+        rm -rf feeds/packages/net/nfs-utils
+        rm -rf feeds/luci/applications/luci-app-nfs
+        # 从配置中禁用
+        sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
+        sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
+        echo "Done removing problematic packages"
+        # ========================================
+        
         make defconfig
         
         # 下载源码包（带重试）
