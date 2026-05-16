@@ -158,13 +158,30 @@ jobs:
         sudo -E apt -y autoremove --purge
         sudo -E apt clean
         sudo timedatectl set-timezone "Asia/Shanghai"
-        # 安装新版 CMake
-        sudo apt-get remove -y cmake
-        sudo rm -f /usr/local/bin/cmake
+        
+        # ========== 安装新版 CMake 3.31.5 ==========
+        echo "Installing CMake 3.31.5..."
+        # 彻底移除所有旧版 CMake
+        sudo apt-get remove -y cmake 2>/dev/null || true
+        sudo apt-get autoremove -y cmake 2>/dev/null || true
+        sudo rm -f /usr/bin/cmake /usr/local/bin/cmake /bin/cmake
+        sudo rm -rf /usr/share/cmake-* /usr/local/share/cmake-*
+        
+        # 下载并安装 CMake 3.31.5 到 /usr
         wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.31.5/cmake-3.31.5-linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr
+        
+        # 强制刷新环境
         hash -r
-        which cmake
-        cmake --version
+        export PATH=/usr/bin:$PATH
+        
+        # 验证安装
+        echo "CMake version: $(cmake --version)"
+        echo "CMake path: $(which cmake)"
+        
+        # 确保 OpenWrt 编译时能找到新版 CMake
+        echo "CMAKE=/usr/bin/cmake" >> $GITHUB_ENV
+        echo "cmake_BIN=/usr/bin/cmake" >> $GITHUB_ENV
+        # ================================================================
 
     - name: Clone Openwrt Source Code
       run: |
@@ -190,6 +207,20 @@ jobs:
         df -h
         chmod +x Scripts/AutoBuild_*.sh
         cd openwrt
+        
+        # ========== 确保使用正确的 CMake ==========
+        export PATH=/usr/bin:$PATH
+        export CMAKE=/usr/bin/cmake
+        export cmake_BIN=/usr/bin/cmake
+        echo "Using CMake: $(which cmake)"
+        echo "CMake version: $(cmake --version)"
+        
+        # 修改 OpenWrt 的 CMake 检测
+        if [ -f "rules.mk" ]; then
+          sed -i 's|CMAKE:=cmake|CMAKE:=/usr/bin/cmake|g' rules.mk
+        fi
+        # ==========================================
+        
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]
         then
         echo -e "\nCONFIG_DEVEL=y\nCONFIG_CCACHE=y\n" >> $GITHUB_WORKSPACE/Configs/$CONFIG_FILE
@@ -222,6 +253,8 @@ jobs:
     - name: Pre-download Libraries
       run: |
         cd openwrt
+        export PATH=/usr/bin:$PATH
+        export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
         make defconfig
         make download -j8
@@ -230,8 +263,20 @@ jobs:
       id: compile
       run: |
         cd openwrt
-        echo "Fixing rpcd-mod-luci CMake version..."
-        find . -type f -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print 2>/dev/null || true
+        
+        # ========== 确保 CMake 环境正确 ==========
+        export PATH=/usr/bin:$PATH
+        export CMAKE=/usr/bin/cmake
+        export cmake_BIN=/usr/bin/cmake
+        echo "Using CMake: $(which cmake)"
+        cmake --version
+        # ========================================
+        
+        # 修复所有 CMakeLists.txt 中的版本要求
+        echo "Fixing CMake minimum version requirements..."
+        find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3\.3[0-9])/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
+        find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.8\.12)/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
+        
         echo "Starting compilation..."
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
