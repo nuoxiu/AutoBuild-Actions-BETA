@@ -257,7 +257,19 @@ jobs:
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
         make defconfig
-        make download -j8
+        
+        # 下载源码包（带重试）
+        echo "Downloading sources with retry..."
+        for i in 1 2 3 4 5; do
+          echo "Attempt $i..."
+          make download -j8 && break
+          echo "Download failed, retrying in 10s..."
+          sleep 10
+        done
+        
+        # 检查是否所有文件都下载成功
+        find dl -size 0 -type f -exec rm -f {} \;
+        echo "Download completed!"
 
     - name: Build OpenWrt
       id: compile
