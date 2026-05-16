@@ -2,6 +2,7 @@
 #   Description: Compile OpenWrt by GitHub Actions        #
 #   Based on: https://github.com/P3TERX/Actions-OpenWrt   #
 #   Author: Hyy2001X                                      #
+#   Optimized for Newifi D2 + 20230609 branch             #
 ###########################################################
 
 name: NEWIFI D2
@@ -63,8 +64,8 @@ on:
 env:
 # 编译时调用的 [.config] 文件名称
   CONFIG_FILE: d-team_newifi-d2
-# 源码仓库:分支
-  DEFAULT_SOURCE: coolsnowwolf/lede:master
+# 源码仓库:分支 (使用 20230609 分支)
+  DEFAULT_SOURCE: coolsnowwolf/lede:20230609
 # 删除无用文件以增加编译空间
   DELETE_USELESS_FILES: true
 # 删除早期的 workflow 任务
@@ -84,55 +85,6 @@ jobs:
 
     steps:
 
-    # - name: Free Disk Space (Ubuntu)
-      # uses: jlumbroso/free-disk-space@main
-      # with:
-    # this might remove tools that are actually needed,
-    # if set to "true" but frees about 6 GB
-        # tool-cache: true
-    
-    # all of these default to true, but feel free to set to
-    # "false" if necessary for your workflow
-        # android: true
-        # dotnet: true
-        # haskell: true
-        # large-packages: true
-        # swap-storage: true
-    
-   # - name: "Optimize disk space"
-     # if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
-     # uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.0"
-     # with:
-       # operate_sudo: "True"
-       # general_include: ".+"
-       # general_exclude: |-
-         # ^GCC$
-         # ^G\+\+$
-         # Clang
-         # LLVM
-       # docker_include: ".+"
-       # docker_prune: "True"
-       # docker_clean: "True"
-       # apt_prune: "True"
-       # apt_clean: "True"
-       # homebrew_prune: "True"
-       # homebrew_clean: "True"
-       # npm_prune: "True"
-       # npm_clean: "True"
-       # os_swap: "True"
-
-   # - name: Free up disk space
-     # if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
-     # uses: easimon/maximize-build-space@master
-     # with: 
-       # root-reserve-mb: 51200
-       # swap-size-mb: 100
-       # remove-dotnet: 'true'
-       # remove-android: 'true'
-       # remove-haskell: 'true'
-       # remove-codeql: 'true'
-       # remove-docker-images: 'true'
-       
     - name: Checkout
       uses: actions/checkout@main
       with:
@@ -206,10 +158,9 @@ jobs:
         sudo -E apt -y autoremove --purge
         sudo -E apt clean
         sudo timedatectl set-timezone "Asia/Shanghai"
-        # 彻底移除所有旧版 CMake
+        # 安装新版 CMake
         sudo apt-get remove -y cmake
         sudo rm -f /usr/local/bin/cmake
-        # 安装新版到 /usr
         wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.31.5/cmake-3.31.5-linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr
         hash -r
         which cmake
@@ -249,12 +200,9 @@ jobs:
         make defconfig
 
         # ========== 修复 rpcd-mod-rrdns 和 default-settings 依赖问题 ==========
-        # 1. 彻底删除有问题的包源码
         rm -rf feeds/luci/libs/rpcd-mod-rrdns
-        # 2. 从配置中取消选中该包
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-        # 3. 查找 default-settings 的 Makefile 并移除对缺失包的依赖
         DS_MAKEFILE=$(find package -name "Makefile" -path "*/default-settings/Makefile" | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
         sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' "$DS_MAKEFILE"
@@ -282,12 +230,8 @@ jobs:
       id: compile
       run: |
         cd openwrt
-    
-        # 1. 修复 rpcd-mod-luci 的 CMake 版本（如果需要）
         echo "Fixing rpcd-mod-luci CMake version..."
         find . -type f -name "CMakeLists.txt" -path "*/rpcd-mod-luci/*" -exec sed -i 's/cmake_minimum_required(VERSION 3.31)/cmake_minimum_required(VERSION 3.5)/' {} \; -print 2>/dev/null || true
-    
-        # 2. 开始编译
         echo "Starting compilation..."
         make -j4 || make -j1 V=s
         [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
