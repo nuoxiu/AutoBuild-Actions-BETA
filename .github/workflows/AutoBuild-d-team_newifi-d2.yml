@@ -262,6 +262,8 @@ jobs:
         rm -rf feeds/packages/net/nfs-kernel-server
         rm -rf feeds/packages/net/nfs-utils
         rm -rf feeds/luci/applications/luci-app-nfs
+        rm -rf feeds/packages/lang/node
+        rm -rf feeds/packages/lang/node-yarn
         # 从配置中禁用
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
