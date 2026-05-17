@@ -320,7 +320,7 @@ EOF
 
 Firmware_Diy_End() {
     ECHO "[Firmware_Diy_End] Starting ..."
-    # 确保 WORK 变量已定义（该函数可能在独立的 step 中调用，没有继承之前的变量）
+    # 确保 WORK 变量已定义
     WORK="${GITHUB_WORKSPACE}/openwrt"
     if [ ! -d "${WORK}" ]; then
         echo "##[error] WORK directory ${WORK} does not exist!"
@@ -330,10 +330,7 @@ Firmware_Diy_End() {
 
     ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
 
-    # 确保 Fw_MFormat 有默认值
-    Fw_MFormat="${Fw_MFormat:-bin}"
-
-    # 检查 bin/targets 是否存在
+    # 1. 检查 bin/targets 是否存在
     if [ ! -d "bin/targets" ]; then
         echo "##[error] bin/targets directory not found! Compilation may have failed."
         ls -l bin/ 2>/dev/null || echo "bin/ not found"
@@ -341,57 +338,37 @@ Firmware_Diy_End() {
     fi
 
     echo -e "### FIRMWARE OUTPUT ###"
-    local regex_skip="${Regex_Skip:-packages|buildinfo|sha256sums|manifest|kernel|rootfs|factory|itb|profile|ext4|json}"
-    du -ah bin/targets | egrep -v "${regex_skip}" | grep -v 'ipk'
+    du -ah bin/targets | grep -v 'ipk' || true
 
+    # 2. 创建输出目录
     MKDIR ${WORK}/bin/Firmware
 
-    # 自动推断 TARGET_BOARD 和 TARGET_SUBTARGET（如果变量为空）
-    if [ -z "${TARGET_BOARD}" ] || [ -z "${TARGET_SUBTARGET}" ]; then
-        if [ -f ".config" ]; then
-            TARGET_BOARD=$(grep 'CONFIG_TARGET_BOARD=' .config | cut -d '=' -f2 | tr -d '"')
-            TARGET_SUBTARGET=$(grep 'CONFIG_TARGET_SUBTARGET=' .config | cut -d '=' -f2 | tr -d '"')
-            echo "Inferred TARGET_BOARD=${TARGET_BOARD}, TARGET_SUBTARGET=${TARGET_SUBTARGET}"
-        else
-            echo "##[error] Cannot determine TARGET_BOARD/SUBTARGET"
-            exit 1
-        fi
-    fi
+    # 3. 直接复制所有可能的固件文件到 bin/Firmware
+    #    不再依赖变量推断和重命名
+    echo "Copying all firmware files to bin/Firmware ..."
+    find ${WORK}/bin/targets -type f \( \
+        -name "*.bin" \
+        -o -name "*.img" \
+        -o -name "*.img.gz" \
+        -o -name "*.tar.gz" \
+        -o -name "*.vmdk" \
+        -o -name "*.iso" \
+        -o -name "*.squashfs" \
+        -o -name "*.ubi" \
+        -o -name "*.itb" \
+        -o -name "*-sysupgrade*" \
+        -o -name "*-factory*" \
+    \) -exec cp -a {} ${WORK}/bin/Firmware/ \; 2>/dev/null || true
 
-    Fw_Path="${WORK}/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"
-    if [ ! -d "${Fw_Path}" ]; then
-        echo "##[error] Firmware path ${Fw_Path} not found!"
+    # 4. 验证结果
+    if [ -z "$(ls -A ${WORK}/bin/Firmware 2>/dev/null)" ]; then
+        echo "##[error] No firmware files found! Please check compilation logs."
+        echo "Directory structure of bin/targets:"
+        find ${WORK}/bin/targets -type f | head -50
         exit 1
-    fi
-    cd "${Fw_Path}"
-
-    if [ -f sha256sums ]; then
-        echo -e "### SHA256SUMS ###"
-        cat sha256sums
     else
-        echo "Warning: sha256sums not found"
-    fi
-
-    case "${TARGET_BOARD}" in
-    x86)
-        if [[ ${x86_Full_Images} == true ]]; then
-            Process_Fw $(List_MFormat)
-        else
-            Process_Fw ${Fw_MFormat}
-        fi
-        ;;
-    *)
-        if [[ -n ${Fw_MFormat} ]]; then
-            Process_Fw ${Fw_MFormat}
-        else
-            Process_Fw $(List_MFormat)
-        fi
-        ;;
-    esac
-
-    if ls | grep -q 'AutoBuild-'; then
-        cd -
-        mv -f ${Fw_Path}/AutoBuild-* bin/Firmware 2>/dev/null
+        echo -e "### FINAL FIRMWARE FILES ###"
+        ls -lh ${WORK}/bin/Firmware/
     fi
 
     ECHO "[Firmware_Diy_End] Done"
