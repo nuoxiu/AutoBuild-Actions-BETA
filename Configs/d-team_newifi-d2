@@ -151,7 +151,7 @@ CONFIG_PACKAGE_wireless-tools=y
 CONFIG_PACKAGE_luci-app-wifi-schedule=y
 CONFIG_PACKAGE_luci-i18n-wifi-schedule-zh-cn=y
 CONFIG_PACKAGE_luci-app-access-control=y
-CONFIG_PACKAGE_luci-app-mtwifi=y
+# CONFIG_PACKAGE_luci-app-mtwifi is not set
 
 # ==================== 以太网驱动 ====================
 CONFIG_PACKAGE_kmod-mtk-switch=y
