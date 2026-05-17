@@ -330,6 +330,9 @@ Firmware_Diy_End() {
 
     ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
 
+    # 确保 Fw_MFormat 有默认值
+    Fw_MFormat="${Fw_MFormat:-bin}"
+
     # 检查 bin/targets 是否存在
     if [ ! -d "bin/targets" ]; then
         echo "##[error] bin/targets directory not found! Compilation may have failed."
@@ -338,11 +341,23 @@ Firmware_Diy_End() {
     fi
 
     echo -e "### FIRMWARE OUTPUT ###"
-    # 使用默认的 Regex_Skip，如果变量未定义
     local regex_skip="${Regex_Skip:-packages|buildinfo|sha256sums|manifest|kernel|rootfs|factory|itb|profile|ext4|json}"
     du -ah bin/targets | egrep -v "${regex_skip}" | grep -v 'ipk'
 
     MKDIR ${WORK}/bin/Firmware
+
+    # 自动推断 TARGET_BOARD 和 TARGET_SUBTARGET（如果变量为空）
+    if [ -z "${TARGET_BOARD}" ] || [ -z "${TARGET_SUBTARGET}" ]; then
+        if [ -f ".config" ]; then
+            TARGET_BOARD=$(grep 'CONFIG_TARGET_BOARD=' .config | cut -d '=' -f2 | tr -d '"')
+            TARGET_SUBTARGET=$(grep 'CONFIG_TARGET_SUBTARGET=' .config | cut -d '=' -f2 | tr -d '"')
+            echo "Inferred TARGET_BOARD=${TARGET_BOARD}, TARGET_SUBTARGET=${TARGET_SUBTARGET}"
+        else
+            echo "##[error] Cannot determine TARGET_BOARD/SUBTARGET"
+            exit 1
+        fi
+    fi
+
     Fw_Path="${WORK}/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"
     if [ ! -d "${Fw_Path}" ]; then
         echo "##[error] Firmware path ${Fw_Path} not found!"
