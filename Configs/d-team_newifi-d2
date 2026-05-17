@@ -33,6 +33,7 @@ CONFIG_PACKAGE_uclient-fetch=y
 CONFIG_PACKAGE_urandom-seed=y
 CONFIG_PACKAGE_urngd=y
 CONFIG_PACKAGE_libustream-openssl=y
+# CONFIG_PACKAGE_libustream-mbedtls is not set
 
 # ==================== LuCI Web界面 ====================
 CONFIG_PACKAGE_luci=y
