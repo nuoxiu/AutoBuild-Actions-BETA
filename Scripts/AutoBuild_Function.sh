@@ -319,41 +319,67 @@ EOF
 }
 
 Firmware_Diy_End() {
-	ECHO "[Firmware_Diy_End] Starting ..."
-	# source ${GITHUB_ENV}   # 已注释
-	ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
-	cd ${WORK}
-	echo -e "### FIRMWARE OUTPUT ###"
-	du -ah bin/targets | egrep -v "${Regex_Skip}" | grep -v 'ipk'
-	MKDIR ${WORK}/bin/Firmware
-	Fw_Path="${WORK}/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"
-	cd "${Fw_Path}"
-	echo -e "### SHA256SUMS ###"
-	cat sha256sums
-	case "${TARGET_BOARD}" in
-	x86)
-		if [[ ${x86_Full_Images} == true ]]
-		then
-			Process_Fw $(List_MFormat)
-		else
-			Process_Fw ${Fw_MFormat}
-		fi
-	;;
-	*)
-		if [[ -n ${Fw_MFormat} ]]
-		then
-			Process_Fw ${Fw_MFormat}
-		else
-			Process_Fw $(List_MFormat)
-		fi
-	;;
-	esac
-	if [[ $(ls) =~ 'AutoBuild-' ]]
-	then
-		cd -
-		mv -f ${Fw_Path}/AutoBuild-* bin/Firmware
-	fi
-	ECHO "[Firmware_Diy_End] Done"
+    ECHO "[Firmware_Diy_End] Starting ..."
+    # 确保 WORK 变量已定义（该函数可能在独立的 step 中调用，没有继承之前的变量）
+    WORK="${GITHUB_WORKSPACE}/openwrt"
+    if [ ! -d "${WORK}" ]; then
+        echo "##[error] WORK directory ${WORK} does not exist!"
+        exit 1
+    fi
+    cd ${WORK}
+
+    ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
+
+    # 检查 bin/targets 是否存在
+    if [ ! -d "bin/targets" ]; then
+        echo "##[error] bin/targets directory not found! Compilation may have failed."
+        ls -l bin/ 2>/dev/null || echo "bin/ not found"
+        exit 1
+    fi
+
+    echo -e "### FIRMWARE OUTPUT ###"
+    # 使用默认的 Regex_Skip，如果变量未定义
+    local regex_skip="${Regex_Skip:-packages|buildinfo|sha256sums|manifest|kernel|rootfs|factory|itb|profile|ext4|json}"
+    du -ah bin/targets | egrep -v "${regex_skip}" | grep -v 'ipk'
+
+    MKDIR ${WORK}/bin/Firmware
+    Fw_Path="${WORK}/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"
+    if [ ! -d "${Fw_Path}" ]; then
+        echo "##[error] Firmware path ${Fw_Path} not found!"
+        exit 1
+    fi
+    cd "${Fw_Path}"
+
+    if [ -f sha256sums ]; then
+        echo -e "### SHA256SUMS ###"
+        cat sha256sums
+    else
+        echo "Warning: sha256sums not found"
+    fi
+
+    case "${TARGET_BOARD}" in
+    x86)
+        if [[ ${x86_Full_Images} == true ]]; then
+            Process_Fw $(List_MFormat)
+        else
+            Process_Fw ${Fw_MFormat}
+        fi
+        ;;
+    *)
+        if [[ -n ${Fw_MFormat} ]]; then
+            Process_Fw ${Fw_MFormat}
+        else
+            Process_Fw $(List_MFormat)
+        fi
+        ;;
+    esac
+
+    if ls | grep -q 'AutoBuild-'; then
+        cd -
+        mv -f ${Fw_Path}/AutoBuild-* bin/Firmware 2>/dev/null
+    fi
+
+    ECHO "[Firmware_Diy_End] Done"
 }
 
 Process_Fw() {
