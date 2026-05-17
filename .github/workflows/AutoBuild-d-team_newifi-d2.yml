@@ -217,30 +217,19 @@ jobs:
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
 
-        # 2. 早期补丁（删除有问题的包、修复依赖）
-        rm -rf feeds/luci/libs/rpcd-mod-rrdns
-        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
-        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-
-        DS_MAKEFILE=$(find package -name "Makefile" -path "*/default-settings/Makefile" | head -1)
-        if [ -n "$DS_MAKEFILE" ]; then
-          sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' "$DS_MAKEFILE"
-          sed -i 's/ ucode-mod-log//' "$DS_MAKEFILE"
-        fi
-
-        # 3. 执行全部 DIY 函数（Firmware_Diy_Start 里不要再覆盖 .config）
+        # 2. 执行全部 DIY 函数（Firmware_Diy_Start 里不要再覆盖 .config）
         Firmware_Diy_Start
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
 
-        # 4. 如果需要 ccache，追加到配置
+        # 3. 如果需要 ccache，追加到配置
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]; then
           echo "CONFIG_DEVEL=y" >> .config
           echo "CONFIG_CCACHE=y" >> .config
         fi
 
-        # 5. 最终一次性解析所有依赖和冲突
+        # 4. 首次 defconfig（让 DIY 的修改生效）
         make defconfig
 
     - name: Pre-download Libraries
@@ -249,6 +238,30 @@ jobs:
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
+        
+        # ========== 依赖修补（必须在 feeds install -a 之后，避免被覆盖）==========
+        echo "Fixing package dependencies..."
+        
+        # 删除 rpcd-mod-rrdns 源码，并禁用配置
+        rm -rf feeds/luci/libs/rpcd-mod-rrdns
+        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
+        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
+
+        # 修复 default-settings 的依赖
+        DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
+        if [ -n "$DS_MAKEFILE" ]; then
+          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g; s/+ucode-mod-log//g; s/ ucode-mod-log//g' "$DS_MAKEFILE"
+          echo "Fixed $DS_MAKEFILE"
+        fi
+
+        # 修复 luci-base 和 luci-light 的依赖
+        for pkg in luci-base luci-light; do
+          MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/$pkg/Makefile" 2>/dev/null | head -1)
+          if [ -n "$MAKEFILE" ]; then
+            sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g; s/+ucode-mod-log//g; s/ ucode-mod-log//g' "$MAKEFILE"
+            echo "Fixed dependencies in $MAKEFILE"
+          fi
+        done
         
         # ========== 移除有编译问题的包 ==========
         echo "Removing problematic packages..."
