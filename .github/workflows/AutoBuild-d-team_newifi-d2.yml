@@ -204,68 +204,45 @@ jobs:
     - name: Run Diy Scripts
       run: |
         cd openwrt
-        # ... cmake 环境设置 ...
-    
-        cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
-        source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
-        source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
-    
-        # 早期补丁
-        rm -rf feeds/luci/libs/rpcd-mod-rrdns
-        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
-        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-        # ... 修改 default-settings 的 Makefile ...
-    
-        # 执行所有 DIY
-        Firmware_Diy_Start
-        Firmware_Diy_Main
-        Firmware_Diy
-        Firmware_Diy_Other
-    
-        # 最后统一解析配置
-        make defconfig
-        
-        # ========== 确保使用正确的 CMake ==========
+
+        # 使用正确的 CMake
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         export cmake_BIN=/usr/bin/cmake
-        echo "Using CMake: $(which cmake)"
-        echo "CMake version: $(cmake --version)"
-        
-        # 修改 OpenWrt 的 CMake 检测
         if [ -f "rules.mk" ]; then
           sed -i 's|CMAKE:=cmake|CMAKE:=/usr/bin/cmake|g' rules.mk
         fi
-        # ==========================================
-        
-        if [ "${{ env.CACHE_ACCELERATE }}" == true ]
-        then
-        echo -e "\nCONFIG_DEVEL=y\nCONFIG_CCACHE=y\n" >> $GITHUB_WORKSPACE/Configs/$CONFIG_FILE
-        fi
+
+        # 1. 加载配置文件
         cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
-        make defconfig
 
-        # ========== 修复 rpcd-mod-rrdns 和 default-settings 依赖问题 ==========
+        # 2. 早期补丁（删除有问题的包、修复依赖）
         rm -rf feeds/luci/libs/rpcd-mod-rrdns
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
+
         DS_MAKEFILE=$(find package -name "Makefile" -path "*/default-settings/Makefile" | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
-        sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' "$DS_MAKEFILE"
-        sed -i 's/ ucode-mod-log//' "$DS_MAKEFILE"
-        echo "Fixed $DS_MAKEFILE"
-        else
-        echo "Warning: default-settings Makefile not found"
+          sed -i '/DEPENDS:=.*rpcd-mod-rrdns/d' "$DS_MAKEFILE"
+          sed -i 's/ ucode-mod-log//' "$DS_MAKEFILE"
         fi
-        # ================================================================
 
+        # 3. 执行全部 DIY 函数（Firmware_Diy_Start 里不要再覆盖 .config）
         Firmware_Diy_Start
-        rm -f .config && cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
+
+        # 4. 如果需要 ccache，追加到配置
+        if [ "${{ env.CACHE_ACCELERATE }}" == true ]; then
+          echo "CONFIG_DEVEL=y" >> .config
+          echo "CONFIG_CCACHE=y" >> .config
+        fi
+
+        # 5. 最终一次性解析所有依赖和冲突
+        make defconfig
 
     - name: Pre-download Libraries
       run: |
