@@ -247,22 +247,16 @@ jobs:
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
 
-        # 修复 default-settings 的依赖
+        # 修复 default-settings 的依赖：只移除 rpcd-mod-rrdns，保留 ucode-mod-log
         DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
-          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g; s/+ucode-mod-log//g; s/ ucode-mod-log//g' "$DS_MAKEFILE"
+          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$DS_MAKEFILE"
           echo "Fixed $DS_MAKEFILE"
         fi
 
-        # 修复 luci-base 和 luci-light 的依赖
-        for pkg in luci-base luci-light; do
-          MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/$pkg/Makefile" 2>/dev/null | head -1)
-          if [ -n "$MAKEFILE" ]; then
-            sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g; s/+ucode-mod-log//g; s/ ucode-mod-log//g' "$MAKEFILE"
-            echo "Fixed dependencies in $MAKEFILE"
-          fi
-        done
-        
+        # 注意：不再修改 luci-base 和 luci-light 的 Makefile，以保证 LuCI 完整
+        # ============================================================
+
         # ========== 移除有编译问题的包 ==========
         echo "Removing problematic packages..."
         rm -rf feeds/packages/net/nfs-kernel-server
