@@ -297,9 +297,6 @@ jobs:
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.8\.12)/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
         
         # 移除有编译问题的包 (nfs-kernel-server 需要 ncurses)
-        rm -rf package/feeds/packages/nfs-kernel-server
-        rm -rf package/feeds/packages/nfs-utils
-        rm -rf package/feeds/packages/luci-app-nfs
         echo "Removed problematic packages (nfs)"
         
         echo "Starting compilation..."
