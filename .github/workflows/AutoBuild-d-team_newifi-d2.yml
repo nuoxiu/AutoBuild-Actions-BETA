@@ -298,10 +298,29 @@ jobs:
         
         # 移除有编译问题的包 (nfs-kernel-server 需要 ncurses)
         echo "Removed problematic packages (nfs)"
-        
+
+        # ---------- 编译命令：自动获取详细日志 ----------
         echo "Starting compilation..."
-        make -j4 || make -j1 V=s
-        [ "$?" == 0 ] && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
+        # 先尝试多线程编译
+        make -j4 2>&1 | tee build.log
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          echo "Multi-threaded build failed. Retrying with single-thread verbose mode..."
+          # 如果失败，用单线程详细模式重试，并追加日志
+          make -j1 V=s 2>&1 | tee -a build.log
+          # 用重试的结果作为最终结果
+          test ${PIPESTATUS[0]} -eq 0 && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
+        else
+          echo "Compile_Result=true" >> $GITHUB_ENV
+        fi
+        # ------------------------------------------
+
+    # 新增步骤：将详细日志保存为工件
+    - name: Upload build log
+      if: always() && steps.compile.outcome == 'failure'
+      uses: actions/upload-artifact@v4
+      with:
+        name: openwrt-build-log-${{ env.Compile_Date }}
+        path: openwrt/build.log
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
