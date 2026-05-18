@@ -245,8 +245,7 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
         
-        # ========== 如果旧版分支仍提示缺少依赖，启用下面的假包 (可选) ==========
-        # 大部分情况下 20230609 不需要，但保留也不会有副作用
+        # ========== 创建假包（安全，旧分支不会触发，新分支可防身） ==========
         mkdir -p package/dummy/ucode-mod-log
         cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
         include $(TOPDIR)/rules.mk
@@ -288,7 +287,6 @@ jobs:
         endef
         $(eval $(call BuildPackage,rpcd-mod-rrdns))
         EOF
-        
         # ============================================================
         
         make defconfig
