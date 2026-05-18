@@ -239,26 +239,44 @@ jobs:
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
     
-        # ========== 彻底清除被污染的包并重装干净版本 ==========
-        echo "Cleaning and fixing LuCI dependencies..."
-        rm -rf feeds/luci/libs/rpcd-mod-rrdns
-        rm -rf package/feeds/luci/luci-base
-        rm -rf package/feeds/luci/luci-light
-        rm -rf package/feeds/luci/default-settings
-        ./scripts/feeds install luci-base luci-light default-settings
+        # ========== 直接修补所有 LuCI 包的虚假依赖 ==========
+        echo "Patching Makefiles to remove nonexistent dependencies..."
     
-        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
-        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
+        # 修复 luci-base: 移除 ucode-mod-log 依赖
+        LB_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-base/Makefile" 2>/dev/null | head -1)
+        if [ -n "$LB_MAKEFILE" ]; then
+          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LB_MAKEFILE"
+          echo "Fixed $LB_MAKEFILE"
+        fi
     
+        # 修复 luci-light: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
+        LL_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-light/Makefile" 2>/dev/null | head -1)
+        if [ -n "$LL_MAKEFILE" ]; then
+          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$LL_MAKEFILE"
+          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LL_MAKEFILE"
+          echo "Fixed $LL_MAKEFILE"
+        fi
+    
+        # 修复 default-settings: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
         DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
           sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$DS_MAKEFILE"
+          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$DS_MAKEFILE"
           echo "Fixed $DS_MAKEFILE"
         fi
+    
+        # 删除 rpcd-mod-rrdns 源码（如果还存在）
+        rm -rf feeds/luci/libs/rpcd-mod-rrdns
+    
+        # 从 .config 中禁用这些包
+        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
+        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
+        sed -i '/CONFIG_PACKAGE_ucode-mod-log/d' .config
+        echo "# CONFIG_PACKAGE_ucode-mod-log is not set" >> .config
         # ============================================================
 
         # ========== 移除有编译问题的包 ==========
-        echo "Removing problematic packages..."
+        echo "Removing other problematic packages..."
         rm -rf feeds/packages/net/nfs-kernel-server
         rm -rf feeds/packages/net/nfs-utils
         rm -rf feeds/luci/applications/luci-app-nfs
@@ -271,6 +289,7 @@ jobs:
     
         make defconfig
     
+        # 下载源码包（带重试）
         echo "Downloading sources with retry..."
         for i in 1 2 3 4 5; do
           echo "Attempt $i..."
