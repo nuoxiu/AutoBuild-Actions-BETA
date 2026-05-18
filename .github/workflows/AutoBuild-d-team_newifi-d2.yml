@@ -233,28 +233,29 @@ jobs:
         make defconfig
 
     - name: Pre-download Libraries
+    - name: Pre-download Libraries
       run: |
         cd openwrt
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
-        
-        # ========== 依赖修补（必须在 feeds install -a 之后，避免被覆盖）==========
-        echo "Fixing package dependencies..."
-        
-        # 删除 rpcd-mod-rrdns 源码，并禁用配置
+    
+        # ========== 彻底清除被污染的包并重装干净版本 ==========
+        echo "Cleaning and fixing LuCI dependencies..."
         rm -rf feeds/luci/libs/rpcd-mod-rrdns
+        rm -rf package/feeds/luci/luci-base
+        rm -rf package/feeds/luci/luci-light
+        rm -rf package/feeds/luci/default-settings
+        ./scripts/feeds install luci-base luci-light default-settings
+    
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-
-        # 修复 default-settings 的依赖：只移除 rpcd-mod-rrdns，保留 ucode-mod-log
+    
         DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
           sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$DS_MAKEFILE"
           echo "Fixed $DS_MAKEFILE"
         fi
-
-        # 注意：不再修改 luci-base 和 luci-light 的 Makefile，以保证 LuCI 完整
         # ============================================================
 
         # ========== 移除有编译问题的包 ==========
@@ -264,15 +265,13 @@ jobs:
         rm -rf feeds/luci/applications/luci-app-nfs
         rm -rf feeds/packages/lang/node
         rm -rf feeds/packages/lang/node-yarn
-        # 从配置中禁用
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
         echo "Done removing problematic packages"
         # ========================================
-        
+    
         make defconfig
-        
-        # 下载源码包（带重试）
+    
         echo "Downloading sources with retry..."
         for i in 1 2 3 4 5; do
           echo "Attempt $i..."
@@ -280,8 +279,7 @@ jobs:
           echo "Download failed, retrying in 10s..."
           sleep 10
         done
-        
-        # 检查是否所有文件都下载成功
+    
         find dl -size 0 -type f -exec rm -f {} \;
         echo "Download completed!"
 
