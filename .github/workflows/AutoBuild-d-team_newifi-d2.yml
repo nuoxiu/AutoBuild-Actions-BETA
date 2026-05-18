@@ -239,43 +239,51 @@ jobs:
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
         
-        # ========== 直接修补 Makefile，移除不存在的依赖 ==========
-        echo "Patching LuCI Makefiles to remove nonexistent dependencies..."
+        # ========== 创建空壳包来满足虚假依赖（R24.9.18 专用修复） ==========
+        echo "Creating dummy packages for missing dependencies..."
         
-        # 修复 luci-base: 移除 ucode-mod-log 依赖
-        LB_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-base/Makefile" 2>/dev/null | head -1)
-        if [ -n "$LB_MAKEFILE" ]; then
-          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LB_MAKEFILE"
-          echo "Fixed $LB_MAKEFILE"
-        fi
+        # 创建 dummy ucode-mod-log 包
+        mkdir -p package/dummy/ucode-mod-log
+        cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
+        include $(TOPDIR)/rules.mk
+        PKG_NAME:=ucode-mod-log
+        PKG_VERSION:=1.0
+        PKG_RELEASE:=1
+        include $(INCLUDE_DIR)/package.mk
+        define Package/ucode-mod-log
+          SECTION:=dummy
+          CATEGORY:=Dummy
+          TITLE:=Dummy package for ucode-mod-log
+        endef
+        define Package/ucode-mod-log/install
+          true
+        endef
+        $(eval $(call BuildPackage,ucode-mod-log))
+        EOF
         
-        # 修复 luci-light: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
-        LL_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-light/Makefile" 2>/dev/null | head -1)
-        if [ -n "$LL_MAKEFILE" ]; then
-          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$LL_MAKEFILE"
-          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LL_MAKEFILE"
-          echo "Fixed $LL_MAKEFILE"
-        fi
-        
-        # 修复 default-settings: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
-        DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
-        if [ -n "$DS_MAKEFILE" ]; then
-          sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$DS_MAKEFILE"
-          sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$DS_MAKEFILE"
-          echo "Fixed $DS_MAKEFILE"
-        fi
-        
-        # 删除 rpcd-mod-rrdns 源码（如果还存在）
+        # 创建 dummy rpcd-mod-rrdns 包
+        mkdir -p package/dummy/rpcd-mod-rrdns
+        cat > package/dummy/rpcd-mod-rrdns/Makefile <<'EOF'
+        include $(TOPDIR)/rules.mk
+        PKG_NAME:=rpcd-mod-rrdns
+        PKG_VERSION:=1.0
+        PKG_RELEASE:=1
+        include $(INCLUDE_DIR)/package.mk
+        define Package/rpcd-mod-rrdns
+          SECTION:=dummy
+          CATEGORY:=Dummy
+          TITLE:=Dummy package for rpcd-mod-rrdns
+        endef
+        define Package/rpcd-mod-rrdns/install
+          true
+        endef
+        $(eval $(call BuildPackage,rpcd-mod-rrdns))
+        EOF
+
+        # 删除可能存在的旧依赖文件（避免干扰）
         rm -rf feeds/luci/libs/rpcd-mod-rrdns
         
-        # 从 .config 中禁用这些不存在的包
-        sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
-        echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
-        sed -i '/CONFIG_PACKAGE_ucode-mod-log/d' .config
-        echo "# CONFIG_PACKAGE_ucode-mod-log is not set" >> .config
-        # ============================================================
-
-        # ========== 移除其他有编译问题的包 ==========
+        # ========== 移除其他有编译问题的包（保持不变） ==========
         rm -rf feeds/packages/net/nfs-kernel-server feeds/packages/net/nfs-utils feeds/luci/applications/luci-app-nfs
         rm -rf feeds/packages/lang/node feeds/packages/lang/node-yarn
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
