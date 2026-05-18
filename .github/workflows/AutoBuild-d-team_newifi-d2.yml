@@ -238,17 +238,17 @@ jobs:
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
-    
-        # ========== 直接修补所有 LuCI 包的虚假依赖 ==========
-        echo "Patching Makefiles to remove nonexistent dependencies..."
-    
+        
+        # ========== 直接修补 Makefile，移除不存在的依赖 ==========
+        echo "Patching LuCI Makefiles to remove nonexistent dependencies..."
+        
         # 修复 luci-base: 移除 ucode-mod-log 依赖
         LB_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-base/Makefile" 2>/dev/null | head -1)
         if [ -n "$LB_MAKEFILE" ]; then
           sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LB_MAKEFILE"
           echo "Fixed $LB_MAKEFILE"
         fi
-    
+        
         # 修复 luci-light: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
         LL_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-light/Makefile" 2>/dev/null | head -1)
         if [ -n "$LL_MAKEFILE" ]; then
@@ -256,7 +256,7 @@ jobs:
           sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LL_MAKEFILE"
           echo "Fixed $LL_MAKEFILE"
         fi
-    
+        
         # 修复 default-settings: 移除 rpcd-mod-rrdns 和 ucode-mod-log 依赖
         DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
@@ -264,32 +264,26 @@ jobs:
           sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$DS_MAKEFILE"
           echo "Fixed $DS_MAKEFILE"
         fi
-    
+        
         # 删除 rpcd-mod-rrdns 源码（如果还存在）
         rm -rf feeds/luci/libs/rpcd-mod-rrdns
-    
-        # 从 .config 中禁用这些包
+        
+        # 从 .config 中禁用这些不存在的包
         sed -i '/CONFIG_PACKAGE_rpcd-mod-rrdns/d' .config
         echo "# CONFIG_PACKAGE_rpcd-mod-rrdns is not set" >> .config
         sed -i '/CONFIG_PACKAGE_ucode-mod-log/d' .config
         echo "# CONFIG_PACKAGE_ucode-mod-log is not set" >> .config
         # ============================================================
 
-        # ========== 移除有编译问题的包 ==========
-        echo "Removing other problematic packages..."
-        rm -rf feeds/packages/net/nfs-kernel-server
-        rm -rf feeds/packages/net/nfs-utils
-        rm -rf feeds/luci/applications/luci-app-nfs
-        rm -rf feeds/packages/lang/node
-        rm -rf feeds/packages/lang/node-yarn
+        # ========== 移除其他有编译问题的包 ==========
+        rm -rf feeds/packages/net/nfs-kernel-server feeds/packages/net/nfs-utils feeds/luci/applications/luci-app-nfs
+        rm -rf feeds/packages/lang/node feeds/packages/lang/node-yarn
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
-        echo "Done removing problematic packages"
         # ========================================
-    
+        
         make defconfig
-    
-        # 下载源码包（带重试）
+        
         echo "Downloading sources with retry..."
         for i in 1 2 3 4 5; do
           echo "Attempt $i..."
@@ -297,7 +291,6 @@ jobs:
           echo "Download failed, retrying in 10s..."
           sleep 10
         done
-    
         find dl -size 0 -type f -exec rm -f {} \;
         echo "Download completed!"
 
