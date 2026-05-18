@@ -233,7 +233,6 @@ jobs:
         make defconfig
 
     - name: Pre-download Libraries
-    - name: Pre-download Libraries
       run: |
         cd openwrt
         export PATH=/usr/bin:$PATH
