@@ -238,13 +238,14 @@ jobs:
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         ./scripts/feeds install -a
-        
+    
         # ========== 移除明确有问题的包 ==========
         rm -rf feeds/packages/net/nfs-kernel-server feeds/packages/net/nfs-utils feeds/luci/applications/luci-app-nfs
         rm -rf feeds/packages/lang/node feeds/packages/lang/node-yarn
+        rm -rf feeds/packages/net/vlmcsd   # ← 这一行是新增的
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
-        
+   
         # ========== 创建假包（安全，旧分支不会触发，新分支可防身） ==========
         mkdir -p package/dummy/ucode-mod-log
         cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
@@ -266,7 +267,7 @@ jobs:
         endef
         $(eval $(call BuildPackage,ucode-mod-log))
         EOF
-        
+    
         mkdir -p package/dummy/rpcd-mod-rrdns
         cat > package/dummy/rpcd-mod-rrdns/Makefile <<'EOF'
         include $(TOPDIR)/rules.mk
@@ -288,9 +289,9 @@ jobs:
         $(eval $(call BuildPackage,rpcd-mod-rrdns))
         EOF
         # ============================================================
-        
+    
         make defconfig
-        
+    
         echo "Downloading sources with retry..."
         for i in 1 2 3 4 5; do
           echo "Attempt $i..."
@@ -300,7 +301,7 @@ jobs:
         done
         find dl -size 0 -type f -exec rm -f {} \;
         echo "Download completed!"
-
+    
     - name: Build OpenWrt
       id: compile
       run: |
