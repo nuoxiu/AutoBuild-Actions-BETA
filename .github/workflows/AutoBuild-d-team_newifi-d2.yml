@@ -1,28 +1,13 @@
 ###########################################################
 #   Description: Compile OpenWrt by GitHub Actions        #
 #   Based on: https://github.com/P3TERX/Actions-OpenWrt   #
-#   Author: Hyy2001X                                      #
-#   Optimized for Newifi D2 + 20230609 branch             #
+#   Optimized for Newifi D2 (流程优化，不动任何包)        #
 ###########################################################
 
 name: NEWIFI D2
 
 on:
   repository_dispatch:
-  ## Git Push 时触发编译(不要删除此行注释)
-  #push:
-  #  branches: 
-  #    - master
-  
-  ## 定时触发编译(不要删除此行注释)
-  #schedule:
-  #  - cron: 0 8 * * 5
-  
-  ## 重新点亮 Star 时触发编译(不要删除此行注释)
-  #watch:
-  #  types: [started]
-  
-  ### 界面控制部分 ( 以下内容请保持不变, 如有需要仅修改 options 选项 )
   workflow_dispatch:
     inputs:
       Tempoary_CONFIG:
@@ -57,23 +42,13 @@ on:
         description: '上传 bin 文件夹到 Artifacts'
         default: 'false'
         type: boolean
-      ### 界面控制部分结束 ( 以上内容请保持不变 )
 
-### 请按需求修改以下内容
-### 环境变量设置
 env:
-# 编译时调用的 [.config] 文件名称
   CONFIG_FILE: d-team_newifi-d2
-# 源码仓库:分支 (使用 master 分支）
   DEFAULT_SOURCE: coolsnowwolf/lede:master
-# 删除无用文件以增加编译空间
   DELETE_USELESS_FILES: true
-# 删除早期的 workflow 任务
   DELETE_OLD_WORKFLOW: false
-# Cache 加速编译
   CACHE_ACCELERATE: true
-### 结束
-### 请按需求修改以上内容
 
 jobs:
   Compile:
@@ -89,13 +64,11 @@ jobs:
       uses: actions/checkout@main
       with:
         fetch-depth: 0
-    
+
     - name: Load Custom Variables
       run: |
-        if [ -n "${{ github.event.inputs.Tempoary_CONFIG }}" ]
-        then
-            if [ -f "$GITHUB_WORKSPACE/Configs/${{ github.event.inputs.Tempoary_CONFIG }}" ]
-            then
+        if [ -n "${{ github.event.inputs.Tempoary_CONFIG }}" ]; then
+            if [ -f "$GITHUB_WORKSPACE/Configs/${{ github.event.inputs.Tempoary_CONFIG }}" ]; then
                 CONFIG_FILE=${{ github.event.inputs.Tempoary_CONFIG }}
             else
                 CONFIG_FILE=${{ env.CONFIG_FILE }}
@@ -103,22 +76,15 @@ jobs:
         else
             CONFIG_FILE=${{ env.CONFIG_FILE }}
         fi
-        if [ ! -f "$GITHUB_WORKSPACE/Configs/$CONFIG_FILE" ]
-        then
+        if [ ! -f "$GITHUB_WORKSPACE/Configs/$CONFIG_FILE" ]; then
             echo "CONFIG_FILE: [/Config/$CONFIG_FILE] is not detected ..."
             exit 1
-        else
-            echo "CONFIG_FILE: [/Config/$CONFIG_FILE]"
-            echo "CONFIG_FILE=$CONFIG_FILE" >> $GITHUB_ENV
         fi
-        if [ -n "${{ github.event.inputs.Tempoary_IP }}" ]
-        then
-            echo "IP: [${{ github.event.inputs.Tempoary_IP }}]"
+        echo "CONFIG_FILE=$CONFIG_FILE" >> $GITHUB_ENV
+        if [ -n "${{ github.event.inputs.Tempoary_IP }}" ]; then
             echo "Tempoary_IP=${{ github.event.inputs.Tempoary_IP }}" >> $GITHUB_ENV
         fi
-        if [ -n "${{ github.event.inputs.Tempoary_FLAG }}" ]
-        then
-            echo "FLAG: [${{ github.event.inputs.Tempoary_FLAG }}]"
+        if [ -n "${{ github.event.inputs.Tempoary_FLAG }}" ]; then
             echo "Tempoary_FLAG=${{ github.event.inputs.Tempoary_FLAG }}" >> $GITHUB_ENV
         fi
         REPO_URL="https://github.com/$(cut -d \: -f 1 <<< ${{ env.DEFAULT_SOURCE }})"
@@ -158,30 +124,20 @@ jobs:
         sudo -E apt -y autoremove --purge
         sudo -E apt clean
         sudo timedatectl set-timezone "Asia/Shanghai"
-        
-        # ========== 安装新版 CMake 3.31.5 ==========
+
+        # 安装新版 CMake 3.31.5
         echo "Installing CMake 3.31.5..."
-        # 彻底移除所有旧版 CMake
         sudo apt-get remove -y cmake 2>/dev/null || true
         sudo apt-get autoremove -y cmake 2>/dev/null || true
         sudo rm -f /usr/bin/cmake /usr/local/bin/cmake /bin/cmake
         sudo rm -rf /usr/share/cmake-* /usr/local/share/cmake-*
-        
-        # 下载并安装 CMake 3.31.5 到 /usr
         wget -qO- "https://github.com/Kitware/CMake/releases/download/v3.31.5/cmake-3.31.5-linux-x86_64.tar.gz" | sudo tar --strip-components=1 -xz -C /usr
-        
-        # 强制刷新环境
         hash -r
         export PATH=/usr/bin:$PATH
-        
-        # 验证安装
+        echo "/usr/bin" >> $GITHUB_PATH
         echo "CMake version: $(cmake --version)"
-        echo "CMake path: $(which cmake)"
-        
-        # 确保 OpenWrt 编译时能找到新版 CMake
         echo "CMAKE=/usr/bin/cmake" >> $GITHUB_ENV
         echo "cmake_BIN=/usr/bin/cmake" >> $GITHUB_ENV
-        # ================================================================
 
     - name: Clone Openwrt Source Code
       run: |
@@ -189,6 +145,7 @@ jobs:
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         cd openwrt
         ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
     - name: Accelerate
       if: env.CACHE_ACCELERATE == 'true'
@@ -200,36 +157,26 @@ jobs:
         clean: true
         prefix: ${{ github.workspace }}/openwrt
 
-    - name: Run Diy Scripts
+    - name: Load Config and Make defconfig
       run: |
         cd openwrt
-
-        # 使用正确的 CMake
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         export cmake_BIN=/usr/bin/cmake
         if [ -f "rules.mk" ]; then
           sed -i 's|CMAKE:=cmake|CMAKE:=/usr/bin/cmake|g' rules.mk
         fi
-
-        # 1. 加载配置文件
         cp $GITHUB_WORKSPACE/Configs/$CONFIG_FILE .config
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_DiyScript.sh
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
-
-        # 2. 执行全部 DIY 函数（Firmware_Diy_Start 里不要再覆盖 .config）
         Firmware_Diy_Start
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
-
-        # 3. 如果需要 ccache，追加到配置
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]; then
           echo "CONFIG_DEVEL=y" >> .config
           echo "CONFIG_CCACHE=y" >> .config
         fi
-
-        # 4. 首次 defconfig（让 DIY 的修改生效）
         make defconfig
 
     - name: Pre-download Libraries
@@ -237,115 +184,66 @@ jobs:
         cd openwrt
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
-        ./scripts/feeds install -a
-    
-        # ========== 移除明确有问题的包 ==========
-        rm -rf feeds/packages/net/nfs-kernel-server feeds/packages/net/nfs-utils feeds/luci/applications/luci-app-nfs
-        rm -rf feeds/packages/lang/node feeds/packages/lang/node-yarn
-        rm -rf feeds/packages/net/vlmcsd   # ← 这一行是新增的
-        rm -rf feeds/luci/applications/luci-app-vlmcsd   # ← 这一行是新增的
-        sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
-        sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
-   
-        # ========== 创建假包（安全，旧分支不会触发，新分支可防身） ==========
-        mkdir -p package/dummy/ucode-mod-log
-        cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
-        include $(TOPDIR)/rules.mk
-        PKG_NAME:=ucode-mod-log
-        PKG_VERSION:=1.0
-        PKG_RELEASE:=1
-        include $(INCLUDE_DIR)/package.mk
-        define Package/ucode-mod-log
-          SECTION:=dummy
-          CATEGORY:=Dummy
-          TITLE:=Dummy package for ucode-mod-log
-        endef
-        define Package/ucode-mod-log/install
-          true
-        endef
-        define Build/Compile
-          true
-        endef
-        $(eval $(call BuildPackage,ucode-mod-log))
-        EOF
-    
-        mkdir -p package/dummy/rpcd-mod-rrdns
-        cat > package/dummy/rpcd-mod-rrdns/Makefile <<'EOF'
-        include $(TOPDIR)/rules.mk
-        PKG_NAME:=rpcd-mod-rrdns
-        PKG_VERSION:=1.0
-        PKG_RELEASE:=1
-        include $(INCLUDE_DIR)/package.mk
-        define Package/rpcd-mod-rrdns
-          SECTION:=dummy
-          CATEGORY:=Dummy
-          TITLE:=Dummy package for rpcd-mod-rrdns
-        endef
-        define Package/rpcd-mod-rrdns/install
-          true
-        endef
-        define Build/Compile
-          true
-        endef
-        $(eval $(call BuildPackage,rpcd-mod-rrdns))
-        EOF
-        # ============================================================
-    
         make defconfig
-    
-        echo "Downloading sources with retry..."
+        DOWNLOAD_JOBS=$(nproc)
+        echo "Downloading sources with ${DOWNLOAD_JOBS} threads..."
         for i in 1 2 3 4 5; do
           echo "Attempt $i..."
-          make download -j8 && break
+          make download -j${DOWNLOAD_JOBS} && break
           echo "Download failed, retrying in 10s..."
           sleep 10
         done
         find dl -size 0 -type f -exec rm -f {} \;
         echo "Download completed!"
-    
+
     - name: Build OpenWrt
       id: compile
       run: |
         cd openwrt
-        
-        # ========== 确保 CMake 环境正确 ==========
         export PATH=/usr/bin:$PATH
         export CMAKE=/usr/bin/cmake
         export cmake_BIN=/usr/bin/cmake
+
+        # 编译前磁盘空间检查与清理
+        echo "Available disk space before build:"
+        df -h .
+        rm -rf tmp
+        rm -rf build_dir/target-*/linux-*/linux-* 2>/dev/null || true
+
         echo "Using CMake: $(which cmake)"
         cmake --version
-        # ========================================
-        
-        # 修复所有 CMakeLists.txt 中的版本要求
         echo "Fixing CMake minimum version requirements..."
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3\.3[0-9])/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.8\.12)/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
-        
-        # 移除有编译问题的包 (nfs-kernel-server 需要 ncurses)
-        echo "Removed problematic packages (nfs)"
 
-        # ---------- 编译命令：自动获取详细日志 ----------
-        echo "Starting compilation..."
-        # 先尝试多线程编译
+        echo "Starting compilation (multi-threaded)..."
         make -j4 2>&1 | tee build.log
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
           echo "Multi-threaded build failed. Retrying with single-thread verbose mode..."
-          # 如果失败，用单线程详细模式重试，并追加日志
-          make -j1 V=s 2>&1 | tee -a build.log
-          # 用重试的结果作为最终结果
-          test ${PIPESTATUS[0]} -eq 0 && echo "Compile_Result=true" >> $GITHUB_ENV || echo "Compile_Result=false" >> $GITHUB_ENV
+          # 重试时同时输出错误摘要
+          make -j1 V=s 2>&1 | tee -a build.log | grep -E "Error|make\[|FAILED|Failed" > error_summary.txt
+          if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            echo "Compile_Result=true" >> $GITHUB_ENV
+          else
+            echo "Compile_Result=false" >> $GITHUB_ENV
+          fi
         else
           echo "Compile_Result=true" >> $GITHUB_ENV
         fi
-        # ------------------------------------------
 
-    # 新增步骤：将详细日志保存为工件
-    - name: Upload build log
+        # ccache 统计信息
+        if command -v ccache &> /dev/null; then
+          ccache -s >> build.log
+        fi
+
+    - name: Upload build log and error summary
       if: always() && steps.compile.outcome == 'failure'
       uses: actions/upload-artifact@v4
       with:
         name: openwrt-build-log-${{ env.Compile_Date }}
-        path: openwrt/build.log
+        path: |
+          openwrt/build.log
+          openwrt/error_summary.txt
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
@@ -353,6 +251,9 @@ jobs:
         cd openwrt
         source $GITHUB_WORKSPACE/Scripts/AutoBuild_Function.sh
         Firmware_Diy_End
+        # 输出固件清单到 Step Summary
+        echo "=== Firmware Files ===" >> $GITHUB_STEP_SUMMARY
+        find bin/targets -type f \( -name "*.bin" -o -name "*.img.gz" -o -name "*.tar.gz" \) -exec ls -lh {} \; >> $GITHUB_STEP_SUMMARY
 
     - name: Upload Firmware to Artifacts
       uses: actions/upload-artifact@main
@@ -377,12 +278,12 @@ jobs:
         file_glob: true
         tag: AutoUpdate
         overwrite: true
-        
+
     - name: Refresh API (1/2)
       if: env.UPLOAD_RELEASES == 'true' && steps.compile.outcome == 'success' && !cancelled()
       run: |
         wget https://api.github.com/repos/${{github.repository}}/releases/tags/AutoUpdate -O API
-        
+
     - name: Refresh API (2/2)
       if: env.UPLOAD_RELEASES == 'true' && steps.compile.outcome == 'success' && !cancelled()
       uses: svenstaro/upload-release-action@v2
