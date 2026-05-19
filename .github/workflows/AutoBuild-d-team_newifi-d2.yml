@@ -243,6 +243,7 @@ jobs:
         rm -rf feeds/packages/net/nfs-kernel-server feeds/packages/net/nfs-utils feeds/luci/applications/luci-app-nfs
         rm -rf feeds/packages/lang/node feeds/packages/lang/node-yarn
         rm -rf feeds/packages/net/vlmcsd   # ← 这一行是新增的
+        rm -rf feeds/luci/applications/luci-app-vlmcsd   # ← 这一行是新增的
         sed -i 's/CONFIG_PACKAGE_nfs-kernel-server=y/# CONFIG_PACKAGE_nfs-kernel-server is not set/' .config
         sed -i 's/CONFIG_PACKAGE_luci-app-nfs=y/# CONFIG_PACKAGE_luci-app-nfs is not set/' .config
    
