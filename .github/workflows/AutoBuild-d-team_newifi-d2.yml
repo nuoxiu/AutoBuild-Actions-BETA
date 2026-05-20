@@ -294,7 +294,6 @@ jobs:
         name: openwrt-build-log-${{ env.Compile_Date }}
         path: |
           openwrt/build.log
-          openwrt/error_summary.txt
 
     - name: Checkout Firmware
       if: steps.compile.outcome == 'success' && !cancelled()
