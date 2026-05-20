@@ -41,14 +41,14 @@ exit 0
 EOF
 
 		# ====== 1. 移除旧版本 argon 主题 ======
-		rm -r ${FEEDS_LUCI}/luci-theme-argon* 2>/dev/null || true
+		# rm -r ${FEEDS_LUCI}/luci-theme-argon* 2>/dev/null || true
 
 		# ====== 2. 添加核心插件 ======
 		# OpenClash
-		AddPackage other vernesong OpenClash dev
+		# AddPackage other vernesong OpenClash dev
 		
 		# Argon 主题配置工具
-		AddPackage other jerrykuku luci-app-argon-config master
+		# AddPackage other jerrykuku luci-app-argon-config master
 		
 		# 微信推送 (新名称)
 		AddPackage other tty228 luci-app-wechatpush master
