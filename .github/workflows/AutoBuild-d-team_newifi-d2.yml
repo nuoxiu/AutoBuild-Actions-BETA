@@ -204,7 +204,6 @@ jobs:
         export CMAKE=/usr/bin/cmake
         export cmake_BIN=/usr/bin/cmake
 
-        # 编译前磁盘空间检查与清理
         echo "Available disk space before build:"
         df -h .
         rm -rf tmp
@@ -216,21 +215,21 @@ jobs:
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3\.3[0-9])/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.8\.12)/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
 
-        echo "Starting compilation (multi-threaded, 2 jobs)..."
-        make -j2 2>&1 | tee build.log
+        echo "Starting compilation (multi-threaded)..."
+        make -j4 2>&1 | tee build.log
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
           echo "Multi-threaded build failed. Retrying with single-thread verbose mode..."
-          make -j1 V=s 2>&1 | tee -a build.log | grep -E "Error|make\[|FAILED|Failed" > error_summary.txt
+          # 【修复处】去掉了 grep 过滤，确保完整日志写入 build.log
+          make -j1 V=s 2>&1 | tee -a build.log
           if [ ${PIPESTATUS[0]} -eq 0 ]; then
             echo "Compile_Result=true" >> $GITHUB_ENV
           else
             echo "Compile_Result=false" >> $GITHUB_ENV
           fi
-        else
+          else
           echo "Compile_Result=true" >> $GITHUB_ENV
         fi
 
-        # ccache 统计信息
         if command -v ccache &> /dev/null; then
           ccache -s >> build.log
         fi
