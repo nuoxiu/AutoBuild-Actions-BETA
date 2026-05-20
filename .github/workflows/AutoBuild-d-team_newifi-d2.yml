@@ -48,7 +48,7 @@ env:
   DEFAULT_SOURCE: coolsnowwolf/lede:master
   DELETE_USELESS_FILES: true
   DELETE_OLD_WORKFLOW: false
-  CACHE_ACCELERATE: true
+  CACHE_ACCELERATE: false
 
 jobs:
   Compile:
