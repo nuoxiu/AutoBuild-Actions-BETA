@@ -173,12 +173,66 @@ jobs:
         Firmware_Diy_Main
         Firmware_Diy
         Firmware_Diy_Other
+
+        # ====== 1. 锁死 SSL 库（暴力去冲突） ======
+        sed -i '/CONFIG_PACKAGE_libustream-mbedtls/d' .config
+        sed -i '/CONFIG_PACKAGE_libustream-openssl/d' .config
+        echo "CONFIG_PACKAGE_libustream-openssl=y" >> .config
+        echo "# CONFIG_PACKAGE_libustream-mbedtls is not set" >> .config
+        echo "SSL library locked to openssl."
+
+        # ====== 2. 创建假包（满足缺失依赖） ======
+        echo "Creating dummy packages..."
+        mkdir -p package/dummy/ucode-mod-log
+        cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
+        include $(TOPDIR)/rules.mk
+        PKG_NAME:=ucode-mod-log
+        PKG_VERSION:=1.0
+        PKG_RELEASE:=1
+        include $(INCLUDE_DIR)/package.mk
+        define Package/ucode-mod-log
+          SECTION:=dummy
+          CATEGORY:=Dummy
+          TITLE:=Dummy package for ucode-mod-log
+        endef
+        define Package/ucode-mod-log/install
+          true
+        endef
+        define Build/Compile
+          true
+        endef
+        $(eval $(call BuildPackage,ucode-mod-log))
+        EOF
+
+        mkdir -p package/dummy/rpcd-mod-rrdns
+        cat > package/dummy/rpcd-mod-rrdns/Makefile <<'EOF'
+        include $(TOPDIR)/rules.mk
+        PKG_NAME:=rpcd-mod-rrdns
+        PKG_VERSION:=1.0
+        PKG_RELEASE:=1
+        include $(INCLUDE_DIR)/package.mk
+        define Package/rpcd-mod-rrdns
+          SECTION:=dummy
+          CATEGORY:=Dummy
+          TITLE:=Dummy package for rpcd-mod-rrdns
+        endef
+        define Package/rpcd-mod-rrdns/install
+          true
+        endef
+        define Build/Compile
+          true
+        endef
+        $(eval $(call BuildPackage,rpcd-mod-rrdns))
+        EOF
+        echo "Dummy packages created."
+
+        # ====== 3. 最终整合配置 ======
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]; then
           echo "CONFIG_DEVEL=y" >> .config
           echo "CONFIG_CCACHE=y" >> .config
         fi
         make defconfig
-
+    
     - name: Pre-download Libraries
       run: |
         cd openwrt
@@ -219,21 +273,20 @@ jobs:
         make -j4 2>&1 | tee build.log
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
           echo "Multi-threaded build failed. Retrying with single-thread verbose mode..."
-          # 【修复处】去掉了 grep 过滤，确保完整日志写入 build.log
           make -j1 V=s 2>&1 | tee -a build.log
           if [ ${PIPESTATUS[0]} -eq 0 ]; then
-            echo "Compile_Result=true" >> $GITHUB_ENV
+          echo "Compile_Result=true" >> $GITHUB_ENV
           else
-            echo "Compile_Result=false" >> $GITHUB_ENV
-          fi
+          echo "Compile_Result=false" >> $GITHUB_ENV
+        fi
           else
           echo "Compile_Result=true" >> $GITHUB_ENV
         fi
 
         if command -v ccache &> /dev/null; then
-          ccache -s >> build.log
+        ccache -s >> build.log
         fi
-
+      
     - name: Upload build log and error summary
       if: always() && steps.compile.outcome == 'failure'
       uses: actions/upload-artifact@v4
