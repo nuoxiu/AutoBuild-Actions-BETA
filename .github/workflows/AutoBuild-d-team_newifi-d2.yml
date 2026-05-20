@@ -269,6 +269,22 @@ jobs:
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 3\.3[0-9])/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
         find . -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION 2\.8\.12)/cmake_minimum_required(VERSION 3.5)/g' {} \; 2>/dev/null || true
 
+        # ====== 编译前最终锁定配置 ======
+        echo "Final locking of configuration..."
+
+        # 1. 锁死 SSL 库（再次确保不冲突）
+        sed -i '/CONFIG_PACKAGE_libustream-mbedtls/d' .config
+        sed -i '/CONFIG_PACKAGE_libustream-openssl/d' .config
+        echo "CONFIG_PACKAGE_libustream-openssl=y" >> .config
+        echo "# CONFIG_PACKAGE_libustream-mbedtls is not set" >> .config
+
+        # 2. 启用假包（满足缺失依赖）
+        echo "CONFIG_PACKAGE_ucode-mod-log=y" >> .config
+        echo "CONFIG_PACKAGE_rpcd-mod-rrdns=y" >> .config
+
+        echo "Configuration locked. Starting compilation..."
+        # ====================================
+
         echo "Starting compilation (multi-threaded)..."
         make -j4 2>&1 | tee build.log
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
@@ -286,7 +302,7 @@ jobs:
         if command -v ccache &> /dev/null; then
           ccache -s >> build.log
         fi
-
+        
     - name: Upload build log and error summary
       if: always() && steps.compile.outcome == 'failure'
       uses: actions/upload-artifact@v4
