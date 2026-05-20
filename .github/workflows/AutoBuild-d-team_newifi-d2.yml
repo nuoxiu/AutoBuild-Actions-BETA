@@ -318,7 +318,7 @@ jobs:
         find dl -size 0 -type f -exec rm -f {} \;
         echo "Download completed!"
 
-     - name: Build OpenWrt
+    - name: Build OpenWrt
       id: compile
       run: |
         cd openwrt
