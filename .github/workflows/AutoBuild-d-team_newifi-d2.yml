@@ -176,26 +176,22 @@ jobs:
 
         # ====== 1. 修补 Makefile，移除不存在的依赖 ======
         echo "Patching Makefiles to remove nonexistent dependencies..."
-        # 修补 luci-base，移除对 ucode-mod-log 的依赖
         LB_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-base/Makefile" 2>/dev/null | head -1)
         if [ -n "$LB_MAKEFILE" ]; then
           sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LB_MAKEFILE"
           echo "Fixed $LB_MAKEFILE"
         fi
-        # 修补 luci-light，移除对 rpcd-mod-rrdns 和 ucode-mod-log 的依赖
         LL_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-light/Makefile" 2>/dev/null | head -1)
         if [ -n "$LL_MAKEFILE" ]; then
           sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$LL_MAKEFILE"
           sed -i 's/+ucode-mod-log//g; s/ ucode-mod-log//g' "$LL_MAKEFILE"
           echo "Fixed $LL_MAKEFILE"
         fi
-        # 修补 luci-ssl，确保它依赖 openssl 而不是 mbedtls
         LS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/luci-ssl/Makefile" 2>/dev/null | head -1)
         if [ -n "$LS_MAKEFILE" ]; then
           sed -i 's/+libustream-mbedtls/+libustream-openssl/g' "$LS_MAKEFILE"
           echo "Fixed $LS_MAKEFILE"
         fi
-        # 修补 default-settings，移除 rpcd-mod-rrdns 和 ucode-mod-log
         DS_MAKEFILE=$(find feeds/luci -name "Makefile" -path "*/default-settings/Makefile" 2>/dev/null | head -1)
         if [ -n "$DS_MAKEFILE" ]; then
           sed -i 's/+rpcd-mod-rrdns//g; s/ rpcd-mod-rrdns//g' "$DS_MAKEFILE"
@@ -203,19 +199,33 @@ jobs:
           echo "Fixed $DS_MAKEFILE"
         fi
 
-        # ====== 2. 锁死 SSL 库（暴力去冲突） ======
+        # ====== 2. 修补 e2fsprogs，修复 MIPS16 重定位错误 ======
+        E2FSPROGS_MAKEFILE=$(find feeds/packages -name "Makefile" -path "*/e2fsprogs/Makefile" 2>/dev/null | head -1)
+        if [ -n "$E2FSPROGS_MAKEFILE" ]; then
+          # 在 TARGET_CFLAGS 中添加 -fPIC 标志
+          if grep -q "TARGET_CFLAGS" "$E2FSPROGS_MAKEFILE"; then
+            sed -i '/^TARGET_CFLAGS/ s/$/ -fPIC/' "$E2FSPROGS_MAKEFILE"
+          else
+            echo "TARGET_CFLAGS += -fPIC" >> "$E2FSPROGS_MAKEFILE"
+          fi
+          echo "Fixed e2fsprogs: added -fPIC to TARGET_CFLAGS"
+        else
+          echo "Warning: e2fsprogs Makefile not found, skipping patch."
+        fi
+
+        # ====== 3. 锁死 SSL 库 ======
         sed -i '/CONFIG_PACKAGE_libustream-mbedtls/d' .config
         sed -i '/CONFIG_PACKAGE_libustream-openssl/d' .config
         echo "CONFIG_PACKAGE_libustream-openssl=y" >> .config
         echo "# CONFIG_PACKAGE_libustream-mbedtls is not set" >> .config
         echo "SSL library locked to openssl."
 
-        # ====== 3. 替换 luci-ssl 为 luci-ssl-openssl ======
+        # ====== 4. 替换 luci-ssl 为 luci-ssl-openssl ======
         sed -i 's/CONFIG_PACKAGE_luci-ssl=y/# CONFIG_PACKAGE_luci-ssl is not set/' .config
         echo "CONFIG_PACKAGE_luci-ssl-openssl=y" >> .config
         echo "Replaced luci-ssl with luci-ssl-openssl."
 
-        # ====== 4. 创建假包（作为最后防线） ======
+        # ====== 5. 创建假包（最后防线） ======
         echo "Creating dummy packages..."
         mkdir -p package/dummy/ucode-mod-log
         cat > package/dummy/ucode-mod-log/Makefile <<'EOF'
@@ -260,7 +270,7 @@ jobs:
         EOF
         echo "Dummy packages created."
 
-        # ====== 5. 最终整合配置 ======
+        # ====== 6. 最终整合配置 ======
         if [ "${{ env.CACHE_ACCELERATE }}" == true ]; then
           echo "CONFIG_DEVEL=y" >> .config
           echo "CONFIG_CCACHE=y" >> .config
