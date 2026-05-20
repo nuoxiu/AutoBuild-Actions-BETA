@@ -231,6 +231,10 @@ jobs:
           echo "CONFIG_DEVEL=y" >> .config
           echo "CONFIG_CCACHE=y" >> .config
         fi
+        # ====== 替换 luci-ssl 为 luci-ssl-openssl (避免依赖冲突) ======
+        sed -i 's/CONFIG_PACKAGE_luci-ssl=y/# CONFIG_PACKAGE_luci-ssl is not set/' .config
+        echo "CONFIG_PACKAGE_luci-ssl-openssl=y" >> .config
+        echo "Replaced luci-ssl with luci-ssl-openssl."
         make defconfig
 
     - name: Pre-download Libraries
