@@ -232,7 +232,7 @@ jobs:
           echo "CONFIG_CCACHE=y" >> .config
         fi
         make defconfig
-    
+
     - name: Pre-download Libraries
       run: |
         cd openwrt
@@ -275,18 +275,18 @@ jobs:
           echo "Multi-threaded build failed. Retrying with single-thread verbose mode..."
           make -j1 V=s 2>&1 | tee -a build.log
           if [ ${PIPESTATUS[0]} -eq 0 ]; then
-          echo "Compile_Result=true" >> $GITHUB_ENV
+            echo "Compile_Result=true" >> $GITHUB_ENV
           else
-          echo "Compile_Result=false" >> $GITHUB_ENV
-        fi
-          else
+            echo "Compile_Result=false" >> $GITHUB_ENV
+          fi
+        else
           echo "Compile_Result=true" >> $GITHUB_ENV
         fi
 
         if command -v ccache &> /dev/null; then
-        ccache -s >> build.log
+          ccache -s >> build.log
         fi
-      
+
     - name: Upload build log and error summary
       if: always() && steps.compile.outcome == 'failure'
       uses: actions/upload-artifact@v4
